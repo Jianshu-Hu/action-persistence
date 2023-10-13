@@ -25,8 +25,9 @@ def simulate():
 
     # Record total time steps for solving the tasks
     total_t = 0
-    dir = os.getcwd()+'/gym-maze-master/runs/'+time.strftime('%Y-%m-%d-%H:%M:%S-', time.localtime())+ENV
-    os.mkdir(dir)
+    dir = os.path.dirname(os.path.abspath(__file__))
+    folder = dir+'/runs/'+time.strftime('%Y-%m-%d-%H:%M:%S-', time.localtime())+ENV
+    os.mkdir(folder)
     for episode in range(NUM_EPISODES):
 
         # Reset the environment
@@ -106,7 +107,7 @@ def simulate():
                       % (episode, t, total_reward))
         total_t += t
         header = "episode, total_timesteps, reward, num_success, time_reflection"
-        np.savetxt(dir+'/eval.csv',
+        np.savetxt(folder+'/eval.csv',
                    np.array([episode, total_t, total_reward, num_streaks, TIME_REFLECTION]).reshape([1, 5]),
                    delimiter=",", header=header)
         # It's considered done when it's solved over 120 times consecutively
@@ -160,8 +161,13 @@ def state_to_bucket(state):
 
 if __name__ == "__main__":
     ENV = "maze-sample-5x5-v0"
+    RENDER_MAZE = False
+    ENABLE_RECORDING = False
     # Initialize the "maze" environment
-    env = gym.make(ENV)
+    if RENDER_MAZE:
+        env = gym.make(ENV)
+    else:
+        env = gym.make(ENV, enable_render=False)
 
     '''
     Defining the environment related constants
@@ -190,8 +196,6 @@ if __name__ == "__main__":
     STREAK_TO_END = 50
     SOLVED_T = np.prod(MAZE_SIZE, dtype=int)
     DEBUG_MODE = 0
-    RENDER_MAZE = False
-    ENABLE_RECORDING = False
 
     '''
     Creating a Q-Table for each state-action pair
