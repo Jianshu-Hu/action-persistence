@@ -5,6 +5,7 @@ import math
 import random
 import time
 import os
+import argparse
 
 import gym
 import gym_maze
@@ -160,7 +161,11 @@ def state_to_bucket(state):
 
 
 if __name__ == "__main__":
-    ENV = "maze-sample-5x5-v0"
+    parser = argparse.ArgumentParser(description='args')
+    parser.add_argument('--env', type=str, help='type of environment')
+    args = parser.parse_args()
+
+    ENV = args.env
     RENDER_MAZE = False
     ENABLE_RECORDING = False
     # Initialize the "maze" environment
