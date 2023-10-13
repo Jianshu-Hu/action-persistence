@@ -162,4 +162,4 @@ cython_debug/
 
 # folders in gym-maze-master
 gym-maze-master/runs
-gym-maze-master/outpus
+gym-maze-master/outputs

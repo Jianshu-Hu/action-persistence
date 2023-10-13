@@ -27,7 +27,7 @@ def simulate():
     # Record total time steps for solving the tasks
     total_t = 0
     dir = os.path.dirname(os.path.abspath(__file__))
-    folder = dir+'/runs/'+time.strftime('%Y-%m-%d-%H:%M:%S-', time.localtime())+ENV
+    folder = dir+'/runs/'+time.strftime('%Y-%m-%d-%H:%M:%S-', time.localtime())+ENV+'-seed-'+str(args.seed)
     os.mkdir(folder)
     for episode in range(NUM_EPISODES):
 
@@ -160,10 +160,22 @@ def state_to_bucket(state):
     return tuple(bucket_indice)
 
 
+def set_seed_everywhere(seed):
+    # torch.manual_seed(seed)
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='args')
-    parser.add_argument('--env', type=str, help='type of environment')
+    parser.add_argument('--env', type=str, default='maze-sample-5x5-v0', help='type of environment')
+    parser.add_argument('--time_inv', type=int, default=0, help='use time-reflection or not')
+    parser.add_argument('--seed', type=int, default=0, help='seed')
     args = parser.parse_args()
+
+    set_seed_everywhere(args.seed)
 
     ENV = args.env
     RENDER_MAZE = False
@@ -173,6 +185,7 @@ if __name__ == "__main__":
         env = gym.make(ENV)
     else:
         env = gym.make(ENV, enable_render=False)
+    env.seed(args.seed)
 
     '''
     Defining the environment related constants
@@ -210,7 +223,8 @@ if __name__ == "__main__":
     '''
     Learning related arguments
     '''
-    TIME_REFLECTION = False
+    TIME_REFLECTION = bool(args.time_inv)
+    print('use time reflection: ' + str(TIME_REFLECTION))
 
     '''
     Begin simulation
