@@ -161,7 +161,10 @@ class ReplayBuffer(IterableDataset):
             step_reward = episode['reward'][idx + i]
             reward += discount * step_reward
             discount *= episode['discount'][idx + i] * self._discount
-        return (obs, action, reward, discount, next_obs)
+
+        one_step_next_obs = episode['observation'][idx]
+        one_step_reward = episode['reward'][idx]
+        return (obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward)
 
     def __iter__(self):
         while True:

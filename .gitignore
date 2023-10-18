@@ -163,3 +163,4 @@ cython_debug/
 # folders in gym-maze-master
 gym-maze-master/runs
 gym-maze-master/outputs
+drqv2-main/outputs

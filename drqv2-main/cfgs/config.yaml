@@ -22,7 +22,7 @@ batch_size: 256
 # misc
 seed: 1
 device: cuda
-save_video: true
+save_video: false
 save_train_video: false
 use_tb: true
 # experiment
@@ -31,7 +31,8 @@ experiment: exp
 lr: 1e-4
 feature_dim: 50
 
-# augmentation
+##### augmentation
+# image transformation
 aug_K: 1
 # data augmentation type
 aug_type: 1
@@ -39,6 +40,16 @@ aug_type: 1
 add_KL_loss: false
 # tangent prop
 tangent_prop: false
+
+# reward model
+train_reward_model: false
+# dynamics model
+train_dynamics_model: false
+# time reflection
+time_reflection: false
+# time contraction
+time_scale: 1.0
+
 
 agent:
   _target_: drqv2.DrQV2Agent
@@ -58,6 +69,10 @@ agent:
   aug_type: ${aug_type}
   add_KL_loss: ${add_KL_loss}
   tangent_prop: ${tangent_prop}
+  train_reward_model: ${train_reward_model}
+  train_dynamics_model: ${train_dynamics_model}
+  time_reflection: ${time_reflection}
+  time_scale: ${time_scale}
 
 hydra:
   run:

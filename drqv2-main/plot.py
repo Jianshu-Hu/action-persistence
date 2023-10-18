@@ -44,20 +44,12 @@ def plot_several_folders(prefix, folders, action_repeat, label_list=[], plot_or_
             else:
                 axs_plot = axs[int(j/2)][j-2*(int(j/2))]
             # plot variance
-            if label_list[i] == 'ours':
-                axs_plot.fill_between(eval_freq*range(len(mean_all[j])),
-                        mean_all[j] - std_all[j]/math.sqrt(num_runs),
-                        mean_all[j] + std_all[j]/math.sqrt(num_runs), alpha=0.4, color='C3')
-            else:
-                axs_plot.fill_between(eval_freq*range(len(mean_all[j])),
-                        mean_all[j] - std_all[j]/math.sqrt(num_runs),
-                        mean_all[j] + std_all[j]/math.sqrt(num_runs), alpha=0.4)
+            axs_plot.fill_between(eval_freq*range(len(mean_all[j])),
+                    mean_all[j] - std_all[j]/math.sqrt(num_runs),
+                    mean_all[j] + std_all[j]/math.sqrt(num_runs), alpha=0.4)
             if len(label_list) == len(folders):
                 # specify label
-                if label_list[i] == 'ours':
-                    axs_plot.plot(eval_freq*range(len(mean_all[j])), mean_all[j], label=label_list[i], color='C3')
-                else:
-                    axs_plot.plot(eval_freq * range(len(mean_all[j])), mean_all[j], label=label_list[i])
+                axs_plot.plot(eval_freq * range(len(mean_all[j])), mean_all[j], label=label_list[i])
             else:
                 axs_plot.plot(eval_freq*range(len(mean_all[j])), mean_all[j], label=folders[i])
 
@@ -72,58 +64,59 @@ def plot_several_folders(prefix, folders, action_repeat, label_list=[], plot_or_
         plt.savefig('saved_figs/'+title)
 
 
-prefix = 'quadruped_walk/'
-action_repeat = 2
-# folders_1 = ['drqv2', 'drqv2_aug_2', 'drqv2_aug_2_add_KL', 'drqv2_aug_2_add_KL_add_tangent_prop']
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent_prop']
-label_list = ['drqv2', 'ours']
-plot_several_folders(prefix, folders_1, action_repeat, title='quadruped_walk', label_list=label_list)
-
-prefix = 'quadruped_run/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='quadruped_run', label_list=label_list)
-
-prefix = 'reach_duplo/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='reach_duplo', label_list=label_list)
-
-prefix = 'hopper_hop/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='hopper_hop', label_list=label_list)
-
-
-prefix = 'acrobot_swingup/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='acrobot_swingup', label_list=label_list)
+# prefix = 'quadruped_walk/'
+# action_repeat = 2
+# # folders_1 = ['drqv2', 'drqv2_aug_2', 'drqv2_aug_2_add_KL', 'drqv2_aug_2_add_KL_add_tangent_prop']
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent_prop']
+# label_list = ['drqv2', 'ours']
+# plot_several_folders(prefix, folders_1, action_repeat, title='quadruped_walk', label_list=label_list)
+#
+# prefix = 'quadruped_run/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='quadruped_run', label_list=label_list)
+#
+# prefix = 'reach_duplo/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='reach_duplo', label_list=label_list)
+#
+# prefix = 'hopper_hop/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='hopper_hop', label_list=label_list)
+#
+#
+# prefix = 'acrobot_swingup/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='acrobot_swingup', label_list=label_list)
 
 prefix = 'reacher_hard/'
 action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='reacher_hard', label_list=label_list)
+folders_1 = ['drqv2', 'drqv2_dynamics_model', 'drqv2_dynamics_model_temporal_reflection',
+             'drqv2_dynamics_reward_model', 'drqv2_dynamics_reward_model_temporal_reflection']
+plot_several_folders(prefix, folders_1, action_repeat, title='reacher_hard')
 
-prefix = 'finger_turn_hard/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='finger_turn_hard', label_list=label_list)
-
-prefix = 'walker_run/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='walker_run', label_list=label_list)
-
-prefix = 'finger_spin/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='finger_spin', label_list=label_list)
-
-prefix = 'cheetah_run/'
-action_repeat = 2
-folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-plot_several_folders(prefix, folders_1, action_repeat, title='cheetah_run', label_list=label_list)
+# prefix = 'finger_turn_hard/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='finger_turn_hard', label_list=label_list)
+#
+# prefix = 'walker_run/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='walker_run', label_list=label_list)
+#
+# prefix = 'finger_spin/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='finger_spin', label_list=label_list)
+#
+# prefix = 'cheetah_run/'
+# action_repeat = 2
+# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
+# plot_several_folders(prefix, folders_1, action_repeat, title='cheetah_run', label_list=label_list)
 
 
 
