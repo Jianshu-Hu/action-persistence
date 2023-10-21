@@ -30,6 +30,9 @@ experiment: exp
 # agent
 lr: 1e-4
 feature_dim: 50
+# save model
+save_model: false
+save_every_frames: 50000
 
 ##### augmentation
 # image transformation
@@ -41,8 +44,6 @@ add_KL_loss: false
 # tangent prop
 tangent_prop: false
 
-# reward model
-train_reward_model: false
 # dynamics model
 train_dynamics_model: false
 # time reflection
@@ -69,7 +70,6 @@ agent:
   aug_type: ${aug_type}
   add_KL_loss: ${add_KL_loss}
   tangent_prop: ${tangent_prop}
-  train_reward_model: ${train_reward_model}
   train_dynamics_model: ${train_dynamics_model}
   time_reflection: ${time_reflection}
   time_scale: ${time_scale}

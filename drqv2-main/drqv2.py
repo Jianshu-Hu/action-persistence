@@ -146,7 +146,7 @@ class DrQV2Agent:
     def __init__(self, obs_shape, action_shape, device, lr, feature_dim,
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
-                 aug_K, aug_type, add_KL_loss, tangent_prop, train_reward_model, train_dynamics_model,
+                 aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
                  time_reflection, time_scale):
         self.device = device
         self.critic_target_tau = critic_target_tau
@@ -181,13 +181,6 @@ class DrQV2Agent:
         # tangent prop regularization
         self.tangent_prop = tangent_prop
 
-        # train a reward model
-        self.train_reward_model = train_reward_model
-        if self.train_reward_model:
-            self.reward_model = RewardModel(self.encoder.repr_dim, action_shape, feature_dim,
-                             hidden_dim).to(device)
-            self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
-
         # train a dynamics model
         self.train_dynamics_model = train_dynamics_model
         if self.train_dynamics_model:
@@ -195,6 +188,10 @@ class DrQV2Agent:
                              hidden_dim, self.critic.trunk).to(device)
             self.dynamics_opt = torch.optim.Adam(self.dynamics_model.parameters(), lr=lr)
             self.time_reflection = time_reflection
+
+            self.reward_model = RewardModel(self.encoder.repr_dim, action_shape, feature_dim,
+                             hidden_dim).to(device)
+            self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
 
         # time contraction/dilation
         self.time_scale = time_scale
@@ -207,10 +204,9 @@ class DrQV2Agent:
         self.encoder.train(training)
         self.actor.train(training)
         self.critic.train(training)
-        if self.train_reward_model:
-            self.reward_model.train(training)
         if self.train_dynamics_model:
             self.dynamics_model.train(training)
+            self.reward_model.train(training)
 
     def act(self, obs, step, eval_mode):
         obs = torch.as_tensor(obs, device=self.device)
@@ -244,7 +240,7 @@ class DrQV2Agent:
         tan_vector = obs_aug - obs
         return tan_vector
 
-    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original):
+    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, one_step_next_obs_original):
         metrics = dict()
 
         target_all = []
@@ -301,12 +297,33 @@ class DrQV2Agent:
                 critic_loss_all.append(critic_loss)
             avg_critic_loss = sum(critic_loss_all) / self.aug_K
 
+        if self.time_reflection:
+            with torch.no_grad():
+                # reflect the obs, action, next_obs
+                reflected_obs = self.encoder(self.time_reflect_obs(self.aug(one_step_next_obs_original)))
+                reflected_next_obs = self.encoder(self.time_reflect_obs(self.aug(obs_original)))
+                reflected_action = -action
+
+                # target Q for reflected next obs
+                dist = self.actor(reflected_next_obs, stddev)
+                next_action = dist.sample(clip=self.stddev_clip)
+                target_Q1, target_Q2 = self.critic_target(reflected_next_obs, next_action)
+                target_V = torch.min(target_Q1, target_Q2)
+                target_Q = reward + (discount * target_V)
+
+            Q1, Q2 = self.critic(reflected_obs, reflected_action)
+            reflect_time_critic_loss = F.mse_loss(Q1, target_Q) + F.mse_loss(Q2, target_Q)
+            avg_critic_loss += reflect_time_critic_loss
+
         if self.time_scale != 1.0:
             with torch.no_grad():
                 scaled_action = self.time_scale*action
+                # restrict the action
+                scaled_action = torch.clamp(scaled_action, -1.0, 1.0)
+                # predict next state and reward
                 predicted_feature = self.dynamics_model(obs[0], scaled_action)
                 predicted_reward = self.reward_model(predicted_feature)
-
+                # calculate the target Q for predicted next state
                 dist = self.actor(predicted_feature, stddev, input_feature=True)
                 next_action = dist.sample(clip=self.stddev_clip)
                 target_Q1, target_Q2 = self.critic_target(predicted_feature, next_action, input_feature=True)
@@ -385,39 +402,33 @@ class DrQV2Agent:
             next_obs_feature = self.dynamics_model.trunk(self.encoder(next_obs))
         dynamics_loss = torch.nn.functional.mse_loss(predicted_next_obs_feature, next_obs_feature)
 
-        if self.time_reflection:
-            reflected_obs = self.time_reflect_obs(next_obs)
-            reflected_next_obs = self.time_reflect_obs(obs)
-            reflected_action = -action
-            reflected_predicted_next_obs_feature = self.dynamics_model(self.encoder(reflected_obs), reflected_action)
-            with torch.no_grad():
-                reflected_next_obs_feature = self.dynamics_model.trunk(self.encoder(reflected_next_obs))
-            dynamics_loss += torch.nn.functional.mse_loss(reflected_predicted_next_obs_feature,
-                                                          reflected_next_obs_feature)
-            dynamics_loss = dynamics_loss/2
+        # if self.time_reflection:
+        #     reflected_obs = self.time_reflect_obs(next_obs)
+        #     reflected_next_obs = self.time_reflect_obs(obs)
+        #     reflected_action = -action
+        #     reflected_predicted_next_obs_feature = self.dynamics_model(self.encoder(reflected_obs), reflected_action)
+        #     with torch.no_grad():
+        #         reflected_next_obs_feature = self.dynamics_model.trunk(self.encoder(reflected_next_obs))
+        #     dynamics_loss += torch.nn.functional.mse_loss(reflected_predicted_next_obs_feature,
+        #                                                   reflected_next_obs_feature)
+        #     dynamics_loss = dynamics_loss/2
 
-        if self.train_reward_model:
-            predicted_reward = self.reward_model(predicted_next_obs_feature)
-            reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
-        else:
-            reward_loss = 0
+        predicted_reward = self.reward_model(predicted_next_obs_feature)
+        reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
 
         loss = reward_loss+dynamics_loss
         # optimize dynamics model, reward model and encoder
         self.encoder_opt.zero_grad(set_to_none=True)
         self.dynamics_opt.zero_grad(set_to_none=True)
-        if self.train_reward_model:
-            self.reward_opt.zero_grad(set_to_none=True)
+        self.reward_opt.zero_grad(set_to_none=True)
         loss.backward()
         self.encoder_opt.step()
         self.dynamics_opt.step()
-        if self.train_reward_model:
-            self.reward_opt.step()
+        self.reward_opt.step()
 
         if self.use_tb:
             metrics['dynamics_loss'] = dynamics_loss.item()
-            if self.train_reward_model:
-                metrics['reward_loss'] = reward_loss.item()
+            metrics['reward_loss'] = reward_loss.item()
 
         return metrics
 
@@ -454,7 +465,8 @@ class DrQV2Agent:
 
         # update critic
         metrics.update(
-            self.update_critic(obs_all, action, reward, discount, next_obs_all, step, obs.float()))
+            self.update_critic(obs_all, action, reward, discount, next_obs_all, step,
+                               obs.float(), one_step_next_obs.float()))
 
         # update dynamics and reward model
         if self.train_dynamics_model:
@@ -473,3 +485,38 @@ class DrQV2Agent:
                                  self.critic_target_tau)
 
         return metrics
+
+    def save(self, filename):
+        torch.save(self.encoder.state_dict(), filename + "_encoder")
+        torch.save(self.encoder_opt.state_dict(), filename + "_encoder_optimizer")
+
+        torch.save(self.critic.state_dict(), filename + "_critic")
+        torch.save(self.critic_opt.state_dict(), filename + "_critic_optimizer")
+
+        torch.save(self.actor.state_dict(), filename + "_actor")
+        torch.save(self.actor_opt.state_dict(), filename + "_actor_optimizer")
+
+        if self.train_dynamics_model:
+            torch.save(self.dynamics_model.state_dict(), filename + "_dynamics_model")
+            torch.save(self.dynamics_opt.state_dict(), filename + "_dynamics_optimizer")
+
+            torch.save(self.reward_model.state_dict(), filename + "_reward_model")
+            torch.save(self.reward_opt.state_dict(), filename + "_reward_optimizer")
+
+    def load(self, filename):
+        self.encoder.load_state_dict(torch.load(filename + "_encoder"))
+        self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
+
+        self.critic.load_state_dict(torch.load(filename + "_critic"))
+        self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
+        self.critic_target.load_state_dict(self.critic.state_dict())
+
+        self.actor.load_state_dict(torch.load(filename + "_actor"))
+        self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+
+        if self.train_dynamics_model:
+            self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
+            self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
+
+            self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
+            self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))

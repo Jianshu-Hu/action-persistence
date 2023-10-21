@@ -129,6 +129,8 @@ class Workspace:
                                       self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
+        save_every_step = utils.Every(self.cfg.save_every_frames,
+                                      self.cfg.action_repeat)
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
@@ -169,6 +171,14 @@ class Workspace:
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 self.eval()
+
+            # try to save the model
+            if self.cfg.save_model:
+                if save_every_step(self.global_step):
+                    save_dir = str(self.work_dir)+'/saved_model'
+                    if not os.path.exists(save_dir):
+                        os.mkdir(save_dir)
+                    self.agent.save(save_dir+'/step_'+str(self.global_step))
 
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):

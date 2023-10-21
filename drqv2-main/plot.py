@@ -32,7 +32,7 @@ def average_over_several_runs(folder):
 
 
 def plot_several_folders(prefix, folders, action_repeat, label_list=[], plot_or_save='save', title=""):
-    plt.rcParams["figure.figsize"] = (5, 4)
+    plt.rcParams["figure.figsize"] = (6, 5)
     fig, axs = plt.subplots(1, 1)
     for i in range(len(folders)):
         folder_name = 'saved_exps/'+prefix+folders[i]
@@ -95,19 +95,44 @@ def plot_several_folders(prefix, folders, action_repeat, label_list=[], plot_or_
 prefix = 'reacher_hard/'
 action_repeat = 2
 folders_1 = ['drqv2', 'drqv2_dynamics_model', 'drqv2_dynamics_model_temporal_reflection',
-             'drqv2_dynamics_reward_model', 'drqv2_dynamics_reward_model_temporal_reflection']
-plot_several_folders(prefix, folders_1, action_repeat, title='reacher_hard')
+             'drqv2_dynamics_reward_model', 'drqv2_dynamics_reward_model_temporal_reflection',
+             'drqv2_dynamics_reward_model_tie_dyn_critic', 'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection']
+label_list = ['drqv2', 'dynamics_model', 'dynamics_model_temporal_reflection',
+             'dyn_reward_model', 'dyn_reward_model_temporal_reflection',
+             'dyn_reward_model_tie_dyn_critic', 'dyn_reward_model_tie_dyn_critic_temporal_reflection']
+plot_several_folders(prefix, folders_1, action_repeat, title='reacher_hard_architecture', label_list=label_list)
+
+folders_2 = ['drqv2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic', 'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_05',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_critic']
+label_list2 = ['drqv2',
+               'dyn_reward_model_tie_dyn_critic', 'dyn_reward_model_tie_dyn_critic_time_reflect',
+               'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_05',
+               'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_2',
+               'dyn_reward_model_tie_dyn_critic_time_reflect_critic'
+               ]
+plot_several_folders(prefix, folders_2, action_repeat, title='reacher_hard_time_operation', label_list=label_list2)
 
 # prefix = 'finger_turn_hard/'
 # action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
 # plot_several_folders(prefix, folders_1, action_repeat, title='finger_turn_hard', label_list=label_list)
-#
-# prefix = 'walker_run/'
-# action_repeat = 2
-# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='walker_run', label_list=label_list)
-#
+
+prefix = 'walker_run/'
+action_repeat = 2
+folders_2 = ['drqv2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic', 'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_05',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_2']
+label_list2 = ['drqv2',
+               'dyn_reward_model_tie_dyn_critic', 'dyn_reward_model_tie_dyn_critic_time_reflect',
+               'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_05',
+               'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_2'
+               ]
+plot_several_folders(prefix, folders_2, action_repeat, title='walker_run_time_operation', label_list=label_list2)
+
 # prefix = 'finger_spin/'
 # action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
