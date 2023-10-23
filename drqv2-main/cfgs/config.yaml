@@ -33,6 +33,7 @@ feature_dim: 50
 # save model
 save_model: false
 save_every_frames: 50000
+load_model: none
 
 ##### augmentation
 # image transformation
@@ -56,6 +57,7 @@ agent:
   _target_: drqv2.DrQV2Agent
   obs_shape: ??? # to be specified later
   action_shape: ??? # to be specified later
+  work_dir: ??? # to be specified later
   device: ${device}
   lr: ${lr}
   critic_target_tau: 0.01
@@ -73,6 +75,8 @@ agent:
   train_dynamics_model: ${train_dynamics_model}
   time_reflection: ${time_reflection}
   time_scale: ${time_scale}
+  load_model: ${load_model}
+  task_name: ${task_name}
 
 hydra:
   run:

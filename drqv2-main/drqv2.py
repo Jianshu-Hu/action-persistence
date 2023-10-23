@@ -143,11 +143,11 @@ class DynamicsModel(nn.Module):
 
 
 class DrQV2Agent:
-    def __init__(self, obs_shape, action_shape, device, lr, feature_dim,
+    def __init__(self, obs_shape, action_shape, work_dir, device, lr, feature_dim,
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
-                 time_reflection, time_scale):
+                 time_reflection, time_scale, load_model, task_name):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -196,6 +196,12 @@ class DrQV2Agent:
         # time contraction/dilation
         self.time_scale = time_scale
 
+        # load model
+        self.work_dir = work_dir
+        if load_model != 'none':
+            self.load(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
+            print('load model from: ')
+            print(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
         self.train()
         self.critic_target.train()
 
@@ -504,19 +510,25 @@ class DrQV2Agent:
             torch.save(self.reward_opt.state_dict(), filename + "_reward_optimizer")
 
     def load(self, filename):
-        self.encoder.load_state_dict(torch.load(filename + "_encoder"))
-        self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
+        # only load the policy
+        only_policy = True
+        if only_policy:
+            self.encoder.load_state_dict(torch.load(filename + "_encoder"))
+            self.actor.load_state_dict(torch.load(filename + "_actor"))
+        else:
+            self.encoder.load_state_dict(torch.load(filename + "_encoder"))
+            self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
 
-        self.critic.load_state_dict(torch.load(filename + "_critic"))
-        self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
-        self.critic_target.load_state_dict(self.critic.state_dict())
+            self.critic.load_state_dict(torch.load(filename + "_critic"))
+            self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
+            self.critic_target.load_state_dict(self.critic.state_dict())
 
-        self.actor.load_state_dict(torch.load(filename + "_actor"))
-        self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+            self.actor.load_state_dict(torch.load(filename + "_actor"))
+            self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
 
-        if self.train_dynamics_model:
-            self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
-            self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
+            if self.train_dynamics_model:
+                self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
+                self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
 
-            self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
-            self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))
+                self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
+                self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))

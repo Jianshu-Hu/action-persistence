@@ -25,9 +25,10 @@ from video import TrainVideoRecorder, VideoRecorder
 torch.backends.cudnn.benchmark = True
 
 
-def make_agent(obs_spec, action_spec, cfg):
+def make_agent(obs_spec, action_spec, work_dir_spec, cfg):
     cfg.obs_shape = obs_spec.shape
     cfg.action_shape = action_spec.shape
+    cfg.work_dir = str(work_dir_spec)
     return hydra.utils.instantiate(cfg)
 
 
@@ -43,6 +44,7 @@ class Workspace:
 
         self.agent = make_agent(self.train_env.observation_spec(),
                                 self.train_env.action_spec(),
+                                self.work_dir,
                                 self.cfg.agent)
         self.timer = utils.Timer()
         self._global_step = 0
@@ -178,7 +180,7 @@ class Workspace:
                     save_dir = str(self.work_dir)+'/saved_model'
                     if not os.path.exists(save_dir):
                         os.mkdir(save_dir)
-                    self.agent.save(save_dir+'/step_'+str(self.global_step))
+                    self.agent.save(save_dir+'/action_repeat_'+str(self.cfg.action_repeat)+'_step_'+str(self.global_step))
 
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):

@@ -31,7 +31,7 @@ def average_over_several_runs(folder):
     return mean_all, std_all, evaluation_freq/1000
 
 
-def plot_several_folders(prefix, folders, action_repeat, label_list=[], plot_or_save='save', title=""):
+def plot_several_folders(prefix, folders, label_list=[], plot_or_save='save', title=""):
     plt.rcParams["figure.figsize"] = (6, 5)
     fig, axs = plt.subplots(1, 1)
     for i in range(len(folders)):
@@ -65,83 +65,108 @@ def plot_several_folders(prefix, folders, action_repeat, label_list=[], plot_or_
 
 
 # prefix = 'quadruped_walk/'
-# action_repeat = 2
 # # folders_1 = ['drqv2', 'drqv2_aug_2', 'drqv2_aug_2_add_KL', 'drqv2_aug_2_add_KL_add_tangent_prop']
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent_prop']
 # label_list = ['drqv2', 'ours']
-# plot_several_folders(prefix, folders_1, action_repeat, title='quadruped_walk', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='quadruped_walk', label_list=label_list)
 #
 # prefix = 'quadruped_run/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='quadruped_run', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='quadruped_run', label_list=label_list)
 #
 # prefix = 'reach_duplo/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='reach_duplo', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='reach_duplo', label_list=label_list)
 #
 # prefix = 'hopper_hop/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='hopper_hop', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='hopper_hop', label_list=label_list)
 #
 #
 # prefix = 'acrobot_swingup/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='acrobot_swingup', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup', label_list=label_list)
 
 prefix = 'reacher_hard/'
-action_repeat = 2
 folders_1 = ['drqv2', 'drqv2_dynamics_model', 'drqv2_dynamics_model_temporal_reflection',
              'drqv2_dynamics_reward_model', 'drqv2_dynamics_reward_model_temporal_reflection',
              'drqv2_dynamics_reward_model_tie_dyn_critic', 'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection']
 label_list = ['drqv2', 'dynamics_model', 'dynamics_model_temporal_reflection',
              'dyn_reward_model', 'dyn_reward_model_temporal_reflection',
              'dyn_reward_model_tie_dyn_critic', 'dyn_reward_model_tie_dyn_critic_temporal_reflection']
-plot_several_folders(prefix, folders_1, action_repeat, title='reacher_hard_architecture', label_list=label_list)
+plot_several_folders(prefix, folders_1, title='reacher_hard_architecture', label_list=label_list)
 
 folders_2 = ['drqv2',
              'drqv2_dynamics_reward_model_tie_dyn_critic', 'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection',
              'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_05',
              'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_2',
-             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_critic']
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_critic',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2']
 label_list2 = ['drqv2',
                'dyn_reward_model_tie_dyn_critic', 'dyn_reward_model_tie_dyn_critic_time_reflect',
                'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_05',
                'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_2',
-               'dyn_reward_model_tie_dyn_critic_time_reflect_critic'
+               'dyn_reward_model_tie_dyn_critic_time_reflect_critic',
+               'dyn_reward_model_tie_dyn_critic_time_scale_2'
                ]
-plot_several_folders(prefix, folders_2, action_repeat, title='reacher_hard_time_operation', label_list=label_list2)
+plot_several_folders(prefix, folders_2, title='reacher_hard_time_operation', label_list=label_list2)
+
+folders_3 = ['drqv2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_action_repeat_4_save_model',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_load_repeat_4',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_action_repeat_8_save_model']
+label_list3 = ['drqv2',
+               'dyn_reward_model_tie_dyn_critic_time_scale_2',
+               'dyn_reward_model_tie_dyn_critic_time_scale_2_action_repeat_4',
+               'dyn_reward_model_tie_dyn_critic_time_scale_2_load_repeat_4',
+               'dyn_reward_model_tie_dyn_critic_time_scale_2_action_repeat_8',
+               ]
+plot_several_folders(prefix, folders_3, title='reacher_hard_action_repeat', label_list=label_list3)
 
 # prefix = 'finger_turn_hard/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='finger_turn_hard', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='finger_turn_hard', label_list=label_list)
 
 prefix = 'walker_run/'
-action_repeat = 2
 folders_2 = ['drqv2',
              'drqv2_dynamics_reward_model_tie_dyn_critic', 'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection',
              'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_05',
-             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_2']
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_time_scale_2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_temporal_reflection_critic',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_05']
 label_list2 = ['drqv2',
                'dyn_reward_model_tie_dyn_critic', 'dyn_reward_model_tie_dyn_critic_time_reflect',
                'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_05',
-               'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_2'
+               'dyn_reward_model_tie_dyn_critic_time_reflect_time_scale_2',
+               'dyn_reward_model_tie_dyn_critic_time_reflect_critic',
+               'dyn_reward_model_tie_dyn_critic_time_scale_05'
                ]
-plot_several_folders(prefix, folders_2, action_repeat, title='walker_run_time_operation', label_list=label_list2)
+plot_several_folders(prefix, folders_2, title='walker_run_time_operation', label_list=label_list2)
+
+prefix = 'walker_run/'
+folders_3 = ['drqv2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_4_save_model',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_8_save_model',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_only_policy']
+label_list3 = ['drqv2',
+               'dyn_reward_model_tie_dyn_critic',
+               'dyn_reward_model_tie_dyn_critic_action_repeat_4',
+               'dyn_reward_model_tie_dyn_critic_action_repeat_8',
+               'dyn_reward_model_tie_dyn_critic_load_repeat_4',
+               'dyn_reward_model_tie_dyn_critic_load_repeat_4_only_policy'
+               ]
+plot_several_folders(prefix, folders_3, title='walker_run_action_repeat', label_list=label_list3)
 
 # prefix = 'finger_spin/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='finger_spin', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='finger_spin', label_list=label_list)
 #
 # prefix = 'cheetah_run/'
-# action_repeat = 2
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, action_repeat, title='cheetah_run', label_list=label_list)
+# plot_several_folders(prefix, folders_1, title='cheetah_run', label_list=label_list)
 
 
 
