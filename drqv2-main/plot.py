@@ -115,12 +115,14 @@ folders_3 = ['drqv2',
              'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2',
              'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_action_repeat_4_save_model',
              'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_load_repeat_4',
-             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_action_repeat_8_save_model']
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_action_repeat_8_save_model',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_time_scale_2_mimic_repeat_4_policy_decay_weight']
 label_list3 = ['drqv2',
                'dyn_reward_model_tie_dyn_critic_time_scale_2',
-               'dyn_reward_model_tie_dyn_critic_time_scale_2_action_repeat_4',
-               'dyn_reward_model_tie_dyn_critic_time_scale_2_load_repeat_4',
-               'dyn_reward_model_tie_dyn_critic_time_scale_2_action_repeat_8',
+               'action_repeat_4',
+               'load_repeat_4',
+               'action_repeat_8',
+               'mimic_repeat_repeat_4_decay_weight',
                ]
 plot_several_folders(prefix, folders_3, title='reacher_hard_action_repeat', label_list=label_list3)
 
@@ -150,13 +152,21 @@ folders_3 = ['drqv2',
              'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_4_save_model',
              'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_8_save_model',
              'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4',
-             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_only_policy']
+             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_only_policy',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_mimic_repeat_4_policy',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_mimic_repeat_4_policy_decay_weight',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_1',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_1_mimic_repeat_2_policy_decay_weight']
 label_list3 = ['drqv2',
                'dyn_reward_model_tie_dyn_critic',
-               'dyn_reward_model_tie_dyn_critic_action_repeat_4',
-               'dyn_reward_model_tie_dyn_critic_action_repeat_8',
-               'dyn_reward_model_tie_dyn_critic_load_repeat_4',
-               'dyn_reward_model_tie_dyn_critic_load_repeat_4_only_policy'
+               'action_repeat_4',
+               'action_repeat_8',
+               'load_repeat_4',
+               'load_repeat_4_only_policy',
+               'mimic_repeat_4_policy',
+               'mimic_repeat_4_policy_decay_weight',
+               'repeat_1',
+               'repeat_1_mimic_repeat_2_policy_decay_weight'
                ]
 plot_several_folders(prefix, folders_3, title='walker_run_action_repeat', label_list=label_list3)
 

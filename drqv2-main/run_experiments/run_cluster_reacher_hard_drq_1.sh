@@ -4,7 +4,7 @@ cd /bigdata/users/jhu/temporal-invariance/drqv2-main/
 source /bigdata/users/jhu/anaconda3/bin/activate
 conda activate equiRL
 
-tag=reacher_hard_dyn_rew_model_tie_dyn_critic_time_scale_2_load_repeat_4
+tag=reacher_hard_dyn_rew_model_tie_dyn_critic_time_scale_2_mimic_repeat_4_decay_weight
 seed=1
 
 echo "start running $tag with seed $seed"
