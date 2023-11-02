@@ -81,11 +81,16 @@ def plot_several_folders(prefix, folders, label_list=[], plot_or_save='save', ti
 # prefix = 'hopper_hop/'
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
 # plot_several_folders(prefix, folders_1, title='hopper_hop', label_list=label_list)
-#
-#
-# prefix = 'acrobot_swingup/'
-# folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']
-# plot_several_folders(prefix, folders_1, title='acrobot_swingup', label_list=label_list)
+
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'drqv2_dynamics_reward_model_tie_dyn_critic',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_4_save_model',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_action_repeat_8_save_model',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_mimic_repeat_4_policy_decay_weight']
+label_list = ['drqv2', 'dyn_reward_model_tie_dyn_critic', 'action_repeat_4', 'action_repeat_8',
+              'mimic_repeat_4_policy_decay_weight']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup', label_list=label_list)
 
 prefix = 'reacher_hard/'
 folders_1 = ['drqv2', 'drqv2_dynamics_model', 'drqv2_dynamics_model_temporal_reflection',
@@ -122,7 +127,7 @@ label_list3 = ['drqv2',
                'action_repeat_4',
                'load_repeat_4',
                'action_repeat_8',
-               'mimic_repeat_repeat_4_decay_weight',
+               'mimic_repeat_4_decay_weight',
                ]
 plot_several_folders(prefix, folders_3, title='reacher_hard_action_repeat', label_list=label_list3)
 
@@ -169,6 +174,18 @@ label_list3 = ['drqv2',
                'repeat_1_mimic_repeat_2_policy_decay_weight'
                ]
 plot_several_folders(prefix, folders_3, title='walker_run_action_repeat', label_list=label_list3)
+
+prefix = 'walker_run/'
+folders_4 = ['drqv2',
+             'drqv2_dynamics_reward_model_tie_dyn_critic',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_remove_exploration_steps',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_remove_exploration_steps_decrease_expl']
+label_list4 = ['drqv2',
+               'dyn_reward_model_tie_dyn_critic',
+               'load_repeat_4_remove_expl_steps',
+               'load_repeat_4_remove_expl_steps_decrease_expl'
+               ]
+plot_several_folders(prefix, folders_4, title='walker_run_load_model', label_list=label_list4)
 
 # prefix = 'finger_spin/'
 # folders_1 = ['drqv2', 'drqv2_aug_2_add_KL_add_tangent']

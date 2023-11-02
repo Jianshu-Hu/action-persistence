@@ -147,7 +147,7 @@ class DrQV2Agent:
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
-                 time_reflection, time_scale, load_model, task_name):
+                 time_reflection, time_scale, load_model, task_name, test_model):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -198,11 +198,15 @@ class DrQV2Agent:
 
         # load model
         self.work_dir = work_dir
+        self.load_model = load_model
         if load_model != 'none':
+            self.test_model = test_model
+            self.task_name = task_name
+
             self.mimic_encoder = Encoder(obs_shape).to(device)
             self.mimic_actor = Actor(self.encoder.repr_dim, action_shape, feature_dim,
                                hidden_dim).to(device)
-            self.mimic = True
+            self.mimic = False
             self.load(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
             print('load model from: ')
             print(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
@@ -225,11 +229,11 @@ class DrQV2Agent:
         obs = self.encoder(obs.unsqueeze(0))
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(obs, stddev)
-        if eval_mode:
+        if eval_mode or self.test_model:
             action = dist.mean
         else:
             action = dist.sample(clip=None)
-            if step < self.num_expl_steps:
+            if step < self.num_expl_steps and self.load_model == 'none':
                 action.uniform_(-1.0, 1.0)
         return action.cpu().numpy()[0]
 
@@ -457,6 +461,21 @@ class DrQV2Agent:
         return metrics
 
     def update(self, replay_iter, step):
+        if self.test_model:
+            # test the model trained with larger action repeat
+            obs, action, reward = next(replay_iter)
+            # obs [b, t, 9, w, h]
+            # action [b, t, a]
+            print(obs.size())
+            print(action.size())
+            print(reward.size())
+            idx = np.random.randint(5, obs.size(1))
+            np.savez(self.work_dir+'/../../../saved_episodes/' + self.task_name + '/episodes.npz',
+                     obs=obs.cpu().numpy()[:, idx-6:idx-1, :, :, :], action=action.cpu().numpy()[:, idx-5:idx, :],
+                     reward=reward.cpu().numpy()[:, idx-5:idx, :])
+            # obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward = \
+            #     utils.to_torch(batch, self.device)
+            raise ValueError('finish testing the model')
         metrics = dict()
 
         if step % self.update_every_steps != 0:
@@ -476,6 +495,7 @@ class DrQV2Agent:
             obs_all.append(self.encoder(obs_aug))
             with torch.no_grad():
                 next_obs_all.append(self.encoder(next_obs_aug))
+
         # # augment
         # obs = self.aug(obs.float())
         # next_obs = self.aug(next_obs.float())
@@ -536,20 +556,19 @@ class DrQV2Agent:
         # if only_policy:
         #     self.encoder.load_state_dict(torch.load(filename + "_encoder"))
         #     self.actor.load_state_dict(torch.load(filename + "_actor"))
-        # else:
-        #     self.encoder.load_state_dict(torch.load(filename + "_encoder"))
-        #     self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
-        #
-        #     self.critic.load_state_dict(torch.load(filename + "_critic"))
-        #     self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
-        #     self.critic_target.load_state_dict(self.critic.state_dict())
-        #
-        #     self.actor.load_state_dict(torch.load(filename + "_actor"))
-        #     self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
-        #
-        #     if self.train_dynamics_model:
-        #         self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
-        #         self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
-        #
-        #         self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
-        #         self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))
+        self.encoder.load_state_dict(torch.load(filename + "_encoder"))
+        self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
+
+        self.critic.load_state_dict(torch.load(filename + "_critic"))
+        self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
+        self.critic_target.load_state_dict(self.critic.state_dict())
+
+        self.actor.load_state_dict(torch.load(filename + "_actor"))
+        self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+
+        if self.train_dynamics_model:
+            self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
+            self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
+
+            self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
+            self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))
