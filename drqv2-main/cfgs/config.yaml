@@ -51,8 +51,6 @@ tangent_prop: false
 train_dynamics_model: false
 # time reflection
 time_reflection: false
-# time contraction
-time_scale: 1.0
 
 
 agent:
@@ -76,7 +74,6 @@ agent:
   tangent_prop: ${tangent_prop}
   train_dynamics_model: ${train_dynamics_model}
   time_reflection: ${time_reflection}
-  time_scale: ${time_scale}
   load_model: ${load_model}
   task_name: ${task_name}
   test_model: ${test_model}

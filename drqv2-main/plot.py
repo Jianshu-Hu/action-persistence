@@ -53,7 +53,7 @@ def plot_several_folders(prefix, folders, label_list=[], plot_or_save='save', ti
             else:
                 axs_plot.plot(eval_freq*range(len(mean_all[j])), mean_all[j], label=folders[i])
 
-            axs_plot.set_xlabel('evaluation steps(x1000)')
+            axs_plot.set_xlabel('frames(x1000)')
             axs_plot.set_ylabel('episode reward')
             axs_plot.legend(fontsize=10)
             # axs_plot.set_title(eval_env_type[j])
@@ -179,11 +179,15 @@ prefix = 'walker_run/'
 folders_4 = ['drqv2',
              'drqv2_dynamics_reward_model_tie_dyn_critic',
              'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_remove_exploration_steps',
-             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_remove_exploration_steps_decrease_expl']
+             'drqv2_dynamics_reward_model_tie_dyn_critic_load_repeat_4_remove_exploration_steps_decrease_expl',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_extend_critic_repeat_4',
+             'drqv2_dynamics_reward_model_tie_dyn_critic_extend_actor_critic_repeat_4']
 label_list4 = ['drqv2',
                'dyn_reward_model_tie_dyn_critic',
                'load_repeat_4_remove_expl_steps',
-               'load_repeat_4_remove_expl_steps_decrease_expl'
+               'load_repeat_4_remove_expl_steps_decrease_expl',
+               'extend_critic_repeat_4',
+               'extend_actor_critic_repeat_4'
                ]
 plot_several_folders(prefix, folders_4, title='walker_run_load_model', label_list=label_list4)
 

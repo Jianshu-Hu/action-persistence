@@ -57,17 +57,76 @@ class Actor(nn.Module):
         std = torch.ones_like(mu) * std
         return mu, std
 
-    def forward(self, obs, std, input_feature=False):
-        if input_feature:
-            h = obs
-        else:
-            h = self.trunk(obs)
+    def forward(self, obs, std):
+        h = self.trunk(obs)
 
         mu = self.policy(h)
         mu = torch.tanh(mu)
         std = torch.ones_like(mu) * std
 
         dist = utils.TruncatedNormal(mu, std)
+        return dist
+
+
+class ExActor(nn.Module):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
+        super().__init__()
+
+        self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+                                   nn.LayerNorm(feature_dim), nn.Tanh())
+
+        self.loaded_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+                                    nn.ReLU(inplace=True),
+                                    nn.Linear(hidden_dim, hidden_dim),
+                                    nn.ReLU(inplace=True),
+                                    nn.Linear(hidden_dim, action_shape[0]))
+        self.trained_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+                                    nn.ReLU(inplace=True),
+                                    nn.Linear(hidden_dim, hidden_dim),
+                                    nn.ReLU(inplace=True),
+                                    nn.Linear(hidden_dim, action_shape[0]))
+        self.copied_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+                                    nn.ReLU(inplace=True),
+                                    nn.Linear(hidden_dim, hidden_dim),
+                                    nn.ReLU(inplace=True),
+                                    nn.Linear(hidden_dim, action_shape[0]))
+
+        self.loaded_actor = Actor(repr_dim, action_shape, feature_dim, hidden_dim)
+
+        self.apply(utils.weight_init)
+
+    def load(self, filename):
+        # load the actor
+        self.loaded_actor.load_state_dict(torch.load(filename + "_actor"))
+        self.trunk.load_state_dict(self.loaded_actor.trunk.state_dict())
+        self.loaded_policy.load_state_dict(self.loaded_actor.policy.state_dict())
+
+        for param in self.loaded_policy.parameters():
+            param.requires_grad = False
+
+        # copy policy
+        self.copied_policy.load_state_dict(self.trained_policy.state_dict())
+
+        for param in self.copied_policy.parameters():
+            param.requires_grad = False
+
+    def forward_mu_std(self, obs, std):
+        h = self.trunk(obs)
+
+        loaded_mu = torch.tanh(self.loaded_policy(h))
+        loaded_std = torch.ones_like(loaded_mu) * std
+
+        trained_mu = torch.tanh(self.trained_policy(h))
+        trained_std = torch.ones_like(trained_mu) * std
+
+        copied_mu = torch.tanh(self.copied_policy(h))
+        copied_std = torch.ones_like(copied_mu) * std
+        return loaded_mu+trained_mu-copied_mu, loaded_std+trained_std-copied_std
+
+    def forward(self, obs, std):
+        final_mu, final_std = self.forward_mu_std(obs, std)
+
+        dist = utils.TruncatedNormal(final_mu, final_std)
         return dist
 
 
@@ -90,16 +149,89 @@ class Critic(nn.Module):
 
         self.apply(utils.weight_init)
 
-    def forward(self, obs, action, input_feature=False):
-        if input_feature:
-            h = obs
-        else:
-            h = self.trunk(obs)
+    def forward(self, obs, action):
+        h = self.trunk(obs)
         h_action = torch.cat([h, action], dim=-1)
         q1 = self.Q1(h_action)
         q2 = self.Q2(h_action)
 
         return q1, q2
+
+
+class ExCritic(nn.Module):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
+        super().__init__()
+
+        self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+                                   nn.LayerNorm(feature_dim), nn.Tanh())
+
+        self.loaded_Q1 = nn.Sequential(
+            nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+
+        self.loaded_Q2 = nn.Sequential(
+            nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+
+        self.trained_Q1 = nn.Sequential(
+            nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+        self.trained_Q2 = nn.Sequential(
+            nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+
+        self.copied_Q1 = nn.Sequential(
+            nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+        self.copied_Q2 = nn.Sequential(
+            nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+
+        self.loaded_critic = Critic(repr_dim, action_shape, feature_dim, hidden_dim)
+
+        self.apply(utils.weight_init)
+
+    def load(self, filename):
+        # load the critic
+        self.loaded_critic.load_state_dict(torch.load(filename + "_critic"))
+        self.trunk.load_state_dict(self.loaded_critic.trunk.state_dict())
+        self.loaded_Q1.load_state_dict(self.loaded_critic.Q1.state_dict())
+        self.loaded_Q2.load_state_dict(self.loaded_critic.Q2.state_dict())
+
+        for param in self.loaded_Q1.parameters():
+            param.requires_grad = False
+        for param in self.loaded_Q2.parameters():
+            param.requires_grad = False
+
+        # copy critic
+        self.copied_Q1.load_state_dict(self.trained_Q1.state_dict())
+        self.copied_Q2.load_state_dict(self.trained_Q2.state_dict())
+
+        for param in self.copied_Q1.parameters():
+            param.requires_grad = False
+        for param in self.copied_Q2.parameters():
+            param.requires_grad = False
+
+    def forward(self, obs, action):
+        h = self.trunk(obs)
+        h_action = torch.cat([h, action], dim=-1)
+
+        loaded_q1 = self.loaded_Q1(h_action)
+        loaded_q2 = self.loaded_Q2(h_action)
+
+        copied_q1 = self.copied_Q1(h_action)
+        copied_q2 = self.copied_Q2(h_action)
+
+        trained_q1 = self.trained_Q1(h_action)
+        trained_q2 = self.trained_Q2(h_action)
+
+        return loaded_q1+trained_q1-copied_q1, loaded_q2+trained_q2-copied_q2
 
 
 class RewardModel(nn.Module):
@@ -147,7 +279,7 @@ class DrQV2Agent:
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
-                 time_reflection, time_scale, load_model, task_name, test_model):
+                 time_reflection, load_model, task_name, test_model):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -183,35 +315,43 @@ class DrQV2Agent:
 
         # train a dynamics model
         self.train_dynamics_model = train_dynamics_model
+        self.time_reflection = time_reflection
         if self.train_dynamics_model:
             self.dynamics_model = DynamicsModel(self.encoder.repr_dim, action_shape, feature_dim,
                              hidden_dim, self.critic.trunk).to(device)
             self.dynamics_opt = torch.optim.Adam(self.dynamics_model.parameters(), lr=lr)
-            self.time_reflection = time_reflection
 
             self.reward_model = RewardModel(self.encoder.repr_dim, action_shape, feature_dim,
                              hidden_dim).to(device)
             self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
 
-        # time contraction/dilation
-        self.time_scale = time_scale
 
         # load model
         self.work_dir = work_dir
         self.load_model = load_model
+        self.test_model = test_model
+        self.task_name = task_name
         if load_model != 'none':
-            self.test_model = test_model
-            self.task_name = task_name
+            self.extend_model = False
+            if self.extend_model:
+                self.critic = ExCritic(self.encoder.repr_dim, action_shape, feature_dim,
+                                       hidden_dim).to(device)
+                self.critic_target = ExCritic(self.encoder.repr_dim, action_shape,
+                                              feature_dim, hidden_dim).to(device)
+                # optimizers
+                self.critic_opt = torch.optim.Adam(list(self.critic.trunk.parameters()) +
+                                                   list(self.critic.trained_Q1.parameters()) + list(
+                    self.critic.trained_Q2.parameters()), lr=lr)
 
-            self.mimic_encoder = Encoder(obs_shape).to(device)
-            self.mimic_actor = Actor(self.encoder.repr_dim, action_shape, feature_dim,
-                               hidden_dim).to(device)
-            self.mimic = False
+                self.actor = ExActor(self.encoder.repr_dim, action_shape, feature_dim,
+                                       hidden_dim).to(device)
+                # optimizers
+                self.actor_opt = torch.optim.Adam(list(self.actor.trunk.parameters()) +
+                                                   list(self.actor.trained_policy.parameters()), lr=lr)
+
             self.load(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
             print('load model from: ')
             print(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
-        else:
-            self.mimic = False
         self.train()
         self.critic_target.train()
 
@@ -313,42 +453,23 @@ class DrQV2Agent:
                 critic_loss_all.append(critic_loss)
             avg_critic_loss = sum(critic_loss_all) / self.aug_K
 
-        if self.time_reflection:
-            with torch.no_grad():
-                # reflect the obs, action, next_obs
-                reflected_obs = self.encoder(self.time_reflect_obs(self.aug(one_step_next_obs_original)))
-                reflected_next_obs = self.encoder(self.time_reflect_obs(self.aug(obs_original)))
-                reflected_action = -action
-
-                # target Q for reflected next obs
-                dist = self.actor(reflected_next_obs, stddev)
-                next_action = dist.sample(clip=self.stddev_clip)
-                target_Q1, target_Q2 = self.critic_target(reflected_next_obs, next_action)
-                target_V = torch.min(target_Q1, target_Q2)
-                target_Q = reward + (discount * target_V)
-
-            Q1, Q2 = self.critic(reflected_obs, reflected_action)
-            reflect_time_critic_loss = F.mse_loss(Q1, target_Q) + F.mse_loss(Q2, target_Q)
-            avg_critic_loss += reflect_time_critic_loss
-
-        if self.time_scale != 1.0:
-            with torch.no_grad():
-                scaled_action = self.time_scale*action
-                # restrict the action
-                scaled_action = torch.clamp(scaled_action, -1.0, 1.0)
-                # predict next state and reward
-                predicted_feature = self.dynamics_model(obs[0], scaled_action)
-                predicted_reward = self.reward_model(predicted_feature)
-                # calculate the target Q for predicted next state
-                dist = self.actor(predicted_feature, stddev, input_feature=True)
-                next_action = dist.sample(clip=self.stddev_clip)
-                target_Q1, target_Q2 = self.critic_target(predicted_feature, next_action, input_feature=True)
-                target_V = torch.min(target_Q1, target_Q2)
-                target_Q = predicted_reward + (discount * target_V)
-
-            Q1, Q2 = self.critic(obs[0], scaled_action)
-            scaled_time_critic_loss = F.mse_loss(Q1, target_Q) + F.mse_loss(Q2, target_Q)
-            avg_critic_loss += scaled_time_critic_loss
+        # if self.time_reflection:
+        #     with torch.no_grad():
+        #         # reflect the obs, action, next_obs
+        #         reflected_obs = self.encoder(self.time_reflect_obs(self.aug(one_step_next_obs_original)))
+        #         reflected_next_obs = self.encoder(self.time_reflect_obs(self.aug(obs_original)))
+        #         reflected_action = -action
+        #
+        #         # target Q for reflected next obs
+        #         dist = self.actor(reflected_next_obs, stddev)
+        #         next_action = dist.sample(clip=self.stddev_clip)
+        #         target_Q1, target_Q2 = self.critic_target(reflected_next_obs, next_action)
+        #         target_V = torch.min(target_Q1, target_Q2)
+        #         target_Q = reward + (discount * target_V)
+        #
+        #     Q1, Q2 = self.critic(reflected_obs, reflected_action)
+        #     reflect_time_critic_loss = F.mse_loss(Q1, target_Q) + F.mse_loss(Q2, target_Q)
+        #     avg_critic_loss += reflect_time_critic_loss
 
         if self.use_tb:
             metrics['critic_target_q'] = target_Q.mean().item()
@@ -388,18 +509,6 @@ class DrQV2Agent:
             KL = torch.mean(torch.distributions.kl_divergence(dist_aug_1, dist_aug_2))
             weighted_KL = 0.1 * KL
             actor_loss += weighted_KL
-
-        if self.mimic:
-            # add behavior cloning loss
-            with torch.no_grad():
-                # target policy
-                mu_target, std_target = self.mimic_actor.forward_mu_std(self.mimic_encoder(self.aug(obs_original)), stddev)
-            mu_current, std_current = self.actor.forward_mu_std(obs[0], stddev)
-            dist_target = torch.distributions.Normal(mu_target, std_target)
-            dist_current = torch.distributions.Normal(mu_current, std_current)
-            bc_loss = torch.mean(torch.distributions.kl_divergence(dist_target, dist_current))
-            weight = np.power(0.99995, step)
-            actor_loss += weight*bc_loss
 
         # optimize actor
         self.actor_opt.zero_grad(set_to_none=True)
@@ -548,23 +657,21 @@ class DrQV2Agent:
             torch.save(self.reward_opt.state_dict(), filename + "_reward_optimizer")
 
     def load(self, filename):
-        # only load the policy
-        self.mimic_encoder.load_state_dict(torch.load(filename + "_encoder"))
-        self.mimic_actor.load_state_dict(torch.load(filename + "_actor"))
+        if self.extend_model:
+            self.critic.load(filename)
+            self.critic_target.load_state_dict(self.critic.state_dict())
 
-        # only_policy = True
-        # if only_policy:
-        #     self.encoder.load_state_dict(torch.load(filename + "_encoder"))
-        #     self.actor.load_state_dict(torch.load(filename + "_actor"))
+            self.actor.load(filename)
+        else:
+            self.critic.load_state_dict(torch.load(filename + "_critic"))
+            self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
+            self.critic_target.load_state_dict(self.critic.state_dict())
+
+            self.actor.load_state_dict(torch.load(filename + "_actor"))
+            self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+
         self.encoder.load_state_dict(torch.load(filename + "_encoder"))
         self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
-
-        self.critic.load_state_dict(torch.load(filename + "_critic"))
-        self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
-        self.critic_target.load_state_dict(self.critic.state_dict())
-
-        self.actor.load_state_dict(torch.load(filename + "_actor"))
-        self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
 
         if self.train_dynamics_model:
             self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
