@@ -2,6 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import random
+
 import hydra
 import numpy as np
 import torch
@@ -273,13 +275,23 @@ class DynamicsModel(nn.Module):
 
         return next_state
 
+    def forward_two_steps(self, obs, action_1, action_2):
+        h = self.trunk(obs)
+        h_action = torch.cat([h, action_1], dim=-1)
+        next_state = self.dynamics_model(h_action)
+
+        h_action_next = torch.cat([next_state, action_2], dim=-1)
+        next_next_state = self.dynamics_model(h_action_next)
+
+        return next_next_state
+
 
 class DrQV2Agent:
     def __init__(self, obs_shape, action_shape, work_dir, device, lr, feature_dim,
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
-                 time_reflection, load_model, task_name, test_model):
+                 time_reflection, load_model, task_name, test_model, seed, time_ssl):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -326,6 +338,14 @@ class DrQV2Agent:
             self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
 
 
+        # temporal self-supervised loss
+        self.time_ssl = time_ssl
+        if self.time_ssl == 1:
+            self.cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-06)
+            self.W = nn.Parameter(torch.ones(3).to(device)/5)
+            self.W_opt = torch.optim.Adam([{'params': self.W, 'lr': lr}])
+
+
         # load model
         self.work_dir = work_dir
         self.load_model = load_model
@@ -349,9 +369,9 @@ class DrQV2Agent:
                 self.actor_opt = torch.optim.Adam(list(self.actor.trunk.parameters()) +
                                                    list(self.actor.trained_policy.parameters()), lr=lr)
 
-            self.load(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
+            self.load(self.work_dir+'/../../../saved_model/' + task_name + '/' + 'seed_'+str(seed)+'/' + load_model)
             print('load model from: ')
-            print(self.work_dir+'/../../../saved_model/' + task_name + '/' + load_model)
+            print(self.work_dir+'/../../../saved_model/' + task_name + '/' + 'seed_'+str(seed)+'/' + load_model)
         self.train()
         self.critic_target.train()
 
@@ -486,7 +506,7 @@ class DrQV2Agent:
 
         return metrics
 
-    def update_actor(self, obs, step, obs_original):
+    def update_actor(self, obs, step, obs_original, obs_aug, one_step_next_obs_aug):
         metrics = dict()
 
         stddev = utils.schedule(self.stddev_schedule, step)
@@ -510,10 +530,42 @@ class DrQV2Agent:
             weighted_KL = 0.1 * KL
             actor_loss += weighted_KL
 
+        if self.time_ssl == 1:
+            with torch.no_grad():
+                pert_obs_list = []
+                for i in range(3):
+                    pert_obs = torch.clone(one_step_next_obs_aug)
+                    pert_obs[:, 0:3, :, :] = obs_aug[:, 0:3, :, :]
+                    pert_obs[:, 3:6, :, :] = obs_aug[:, 3*(3-i-1):3*(3-i), :, :]
+                    pert_obs_list.append(self.encoder(pert_obs))
+                one_step_next_obs_aug = self.encoder(one_step_next_obs_aug)
+                next_step_feature = self.actor.trunk(one_step_next_obs_aug)
+
+            # calculate the cosine similarities
+            sim_list = torch.zeros([next_step_feature.size(0), len(pert_obs_list)]).to(next_step_feature.device)
+            for i in range(len(pert_obs_list)):
+                pert_obs_feature = self.actor.trunk(pert_obs_list[i])
+                sim = self.cos_sim(pert_obs_feature, next_step_feature)
+                sim_list[:, i] = torch.exp(sim*self.W[i])
+            # # normalize the similarities
+            # sim_list = sim_list/torch.max(sim_list, 1)[0][:, None]
+            # cross entropy loss
+            ssloss = torch.mean(-torch.log(sim_list[:, 0]/torch.sum(sim_list, dim=1)))
+            actor_loss += 0.1*ssloss
+
         # optimize actor
         self.actor_opt.zero_grad(set_to_none=True)
+        # if self.time_ssl == 1:
+        #     self.W_opt.zero_grad(set_to_none=True)
         actor_loss.backward()
         self.actor_opt.step()
+        # if self.time_ssl == 1:
+        #     self.W_opt.step()
+        #     if step % 1000 == 0:
+        #         print('W: ')
+        #         print(self.W[0])
+        #         print(self.W[1])
+        #         print(self.W[2])
 
         if self.use_tb:
             metrics['actor_loss'] = actor_loss.item()
@@ -521,6 +573,8 @@ class DrQV2Agent:
             metrics['actor_ent'] = dist.entropy().sum(dim=-1).mean().item()
             if self.add_KL_loss:
                 metrics['actor_KL_loss'] = KL.item()
+            if self.time_ssl == 1:
+                metrics['ss_loss'] = ssloss.item()
 
         return metrics
 
@@ -549,6 +603,21 @@ class DrQV2Agent:
         #     dynamics_loss += torch.nn.functional.mse_loss(reflected_predicted_next_obs_feature,
         #                                                   reflected_next_obs_feature)
         #     dynamics_loss = dynamics_loss/2
+
+        if self.time_ssl == 2:
+            with torch.no_grad():
+                a2_weight_target = (1 + random.random() / 2)
+                a1_weight_target = (4 - a2_weight_target) / 3
+                sampled_a1_target = torch.clone(action) * a1_weight_target
+                sampled_a2_target = torch.clone(action) * a2_weight_target
+                target_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs),
+                                                                                 sampled_a1_target, sampled_a2_target)
+            a2_weight = (1+random.random()/2)
+            a1_weight = (4-a2_weight)/3
+            sampled_a1 = torch.clone(action)*a1_weight
+            sampled_a2 = torch.clone(action)*a2_weight
+            invariant_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs), sampled_a1, sampled_a2)
+            dynamics_loss += 1.0 * torch.nn.functional.mse_loss(target_two_steps_feature, invariant_two_steps_feature)
 
         predicted_reward = self.reward_model(predicted_next_obs_feature)
         reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
@@ -622,16 +691,15 @@ class DrQV2Agent:
                                obs.float(), one_step_next_obs.float()))
 
         # update dynamics and reward model
+        with torch.no_grad():
+            one_step_next_obs_aug = self.aug(one_step_next_obs.float())
         if self.train_dynamics_model:
-            with torch.no_grad():
-                one_step_next_obs_aug = self.aug(one_step_next_obs.float())
-
             metrics.update(self.update_dynamics_reward_model(obs_aug, action, one_step_reward, one_step_next_obs_aug))
 
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
-        metrics.update(self.update_actor(obs_all, step, obs.float()))
+        metrics.update(self.update_actor(obs_all, step, obs.float(), obs_aug, one_step_next_obs_aug))
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target,

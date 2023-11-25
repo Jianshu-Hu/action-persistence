@@ -51,6 +51,8 @@ tangent_prop: false
 train_dynamics_model: false
 # time reflection
 time_reflection: false
+# temporal ssl
+time_ssl: 0
 
 
 agent:
@@ -77,6 +79,9 @@ agent:
   load_model: ${load_model}
   task_name: ${task_name}
   test_model: ${test_model}
+  seed: ${seed}
+  time_ssl: ${time_ssl}
+
 
 hydra:
   run:
