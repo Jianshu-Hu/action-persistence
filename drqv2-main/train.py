@@ -70,7 +70,8 @@ class Workspace:
         self.replay_loader = make_replay_loader(
             self.work_dir / 'buffer', self.cfg.replay_buffer_size,
             self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
-            self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model)
+            self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
+            self.cfg.time_ssl_K)
         self._replay_iter = None
 
         self.video_recorder = VideoRecorder(
@@ -180,7 +181,7 @@ class Workspace:
                     save_dir = str(self.work_dir)+'/saved_model'
                     if not os.path.exists(save_dir):
                         os.mkdir(save_dir)
-                    self.agent.save(save_dir+'/action_repeat_'+str(self.cfg.action_repeat)+'_step_'+str(self.global_step))
+                    self.agent.save(save_dir+'/ar_'+str(self.cfg.action_repeat)+'_step_'+str(self.global_step))
 
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):

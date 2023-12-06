@@ -291,7 +291,7 @@ class DrQV2Agent:
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
-                 time_reflection, load_model, task_name, test_model, seed, time_ssl):
+                 time_reflection, load_model, load_folder, task_name, test_model, seed, time_ssl):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -342,13 +342,15 @@ class DrQV2Agent:
         self.time_ssl = time_ssl
         if self.time_ssl == 1:
             self.cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-06)
-            self.W = nn.Parameter(torch.ones(3).to(device)/5)
+            # self.W = 0.2
+            self.W = nn.Parameter(torch.ones(1).to(device)/5)
             self.W_opt = torch.optim.Adam([{'params': self.W, 'lr': lr}])
 
 
         # load model
         self.work_dir = work_dir
         self.load_model = load_model
+        self.load_folder = load_folder
         self.test_model = test_model
         self.task_name = task_name
         if load_model != 'none':
@@ -369,9 +371,11 @@ class DrQV2Agent:
                 self.actor_opt = torch.optim.Adam(list(self.actor.trunk.parameters()) +
                                                    list(self.actor.trained_policy.parameters()), lr=lr)
 
-            self.load(self.work_dir+'/../../../saved_model/' + task_name + '/' + 'seed_'+str(seed)+'/' + load_model)
+            self.load(self.work_dir+'/../../../saved_model/' + task_name + '/'+str(self.load_folder)
+                      + '/' + 'seed_' + str(seed)+'/' + load_model)
             print('load model from: ')
-            print(self.work_dir+'/../../../saved_model/' + task_name + '/' + 'seed_'+str(seed)+'/' + load_model)
+            print(self.work_dir+'/../../../saved_model/' + task_name + '/'+str(self.load_folder)
+                  + '/' + 'seed_'+str(seed)+'/' + load_model)
         self.train()
         self.critic_target.train()
 
@@ -506,7 +510,7 @@ class DrQV2Agent:
 
         return metrics
 
-    def update_actor(self, obs, step, obs_original, obs_aug, one_step_next_obs_aug):
+    def update_actor(self, obs, step, obs_original, obs_aug, one_step_next_obs_aug, next_K_step_obs):
         metrics = dict()
 
         stddev = utils.schedule(self.stddev_schedule, step)
@@ -531,27 +535,95 @@ class DrQV2Agent:
             actor_loss += weighted_KL
 
         if self.time_ssl == 1:
-            with torch.no_grad():
-                pert_obs_list = []
-                for i in range(3):
-                    pert_obs = torch.clone(one_step_next_obs_aug)
-                    pert_obs[:, 0:3, :, :] = obs_aug[:, 0:3, :, :]
-                    pert_obs[:, 3:6, :, :] = obs_aug[:, 3*(3-i-1):3*(3-i), :, :]
-                    pert_obs_list.append(self.encoder(pert_obs))
-                one_step_next_obs_aug = self.encoder(one_step_next_obs_aug)
-                next_step_feature = self.actor.trunk(one_step_next_obs_aug)
+            # fix last frame
+            # for k in range(next_K_step_obs.size(1)-1):
+            #     target_obs = next_K_step_obs[:, -1, :, :, :]
+            #     initial_obs = next_K_step_obs[:, k, :, :, :]
+            #     with torch.no_grad():
+            #         pert_obs_list = []
+            #         pos_obs = torch.clone(target_obs)
+            #         pos_obs[:, 0:3, :, :] = initial_obs[:, 0:3, :, :]
+            #         pert_obs_list.append(self.encoder(pos_obs))
+            #         for i in range(k, next_K_step_obs.size(1)):
+            #             pert_obs = torch.clone(target_obs)
+            #             pert_obs[:, 0:3, :, :] = initial_obs[:, 0:3, :, :]
+            #             pert_obs[:, 3:6, :, :] = next_K_step_obs[:, i, 0:3, :, :]
+            #             pert_obs_list.append(self.encoder(pert_obs))
+            #         target_obs_feature = self.actor.trunk(self.encoder(target_obs))
+            #
+            #     # calculate the cosine similarities
+            #     sim_list = torch.zeros([target_obs_feature.size(0), len(pert_obs_list)]).to(target_obs_feature.device)
+            #     for i in range(len(pert_obs_list)):
+            #         pert_obs_feature = self.actor.trunk(pert_obs_list[i])
+            #         sim = self.cos_sim(pert_obs_feature, target_obs_feature)
+            #         sim_list[:, i] = torch.exp(sim*self.W)
+            #     # # normalize the similarities
+            #     # sim_list = sim_list/torch.max(sim_list, 1)[0][:, None]
+            #     # cross entropy loss
+            #     ssloss = torch.mean(-torch.log(sim_list[:, 0]/torch.sum(sim_list, dim=1)))
+            #     actor_loss += 0.1*ssloss
 
+            # # random choose last two frames
+            # for k in range(next_K_step_obs.size(1)-1):
+            #     target_obs = next_K_step_obs[:, -1, :, :, :]
+            #     initial_obs = next_K_step_obs[:, k, :, :, :]
+            #     with torch.no_grad():
+            #         pert_obs_list = []
+            #         # perturb the first frame
+            #         pos_obs = torch.clone(target_obs)
+            #         pos_obs[:, 0:3, :, :] = initial_obs[:, 0:3, :, :]
+            #         pert_obs_list.append(self.encoder(pos_obs))
+            #         # perturb the first and second frame
+            #         neg1_obs = torch.clone(pos_obs)
+            #         neg1_indx = random.randint(k, next_K_step_obs.size(1)-2)
+            #         neg1_obs[:, 3:6, :, :] = next_K_step_obs[:, neg1_indx, 3:6, :, :]
+            #         pert_obs_list.append(self.encoder(neg1_obs))
+            #         # perturb the all three frames
+            #         neg2_obs = torch.clone(neg1_obs)
+            #         neg2_indx = random.randint(neg1_indx, next_K_step_obs.size(1)-2)
+            #         neg2_obs[:, 6:9, :, :] = next_K_step_obs[:, neg2_indx, 6:9, :, :]
+            #         pert_obs_list.append(self.encoder(neg2_obs))
+            #
+            #         target_obs_feature = self.actor.trunk(self.encoder(target_obs))
+            #
+            #     # calculate the cosine similarities
+            #     sim_list = torch.zeros([target_obs_feature.size(0), len(pert_obs_list)]).to(target_obs_feature.device)
+            #     for i in range(len(pert_obs_list)):
+            #         pert_obs_feature = self.actor.trunk(pert_obs_list[i])
+            #         sim = self.cos_sim(pert_obs_feature, target_obs_feature)
+            #         sim_list[:, i] = torch.exp(sim*self.W)
+            #     # # normalize the similarities
+            #     # sim_list = sim_list/torch.max(sim_list, 1)[0][:, None]
+            #     # cross entropy loss
+            #     ssloss = torch.mean(-torch.log(sim_list[:, 0]/torch.sum(sim_list, dim=1)))
+            #     actor_loss += 0.1*ssloss
+
+            # previous states
+            # s_t = (nt-2n,nt-n,nt)
+            # s_{t-1} = (nt-3n,nt-2n,nt-n)
+            # s_{t-2} = (nt-4n,nt-3n,nt-2n)
+            # ...
+            # s_{t-k} = (nt-(k+2)n,nt-(k+1)n,nt-kn)
+            time_scale_factor = int((next_K_step_obs.size(1)+1)/2)
+            with torch.no_grad():
+                target_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+                pert_obs_list = []
+                for scale in range(1, time_scale_factor):
+                    obs_scale = torch.clone(next_K_step_obs[:, -1, :, :, :])
+                    obs_scale[:, 0:3, :, :] = next_K_step_obs[:, -(scale*2+1), 0:3, :, :]
+                    obs_scale[:, 3:6, :, :] = next_K_step_obs[:, -scale, 0:3, :, :]
+                    pert_obs_list.append(self.encoder(obs_scale))
+                target_obs_feature = self.actor.trunk(self.encoder(target_obs))
             # calculate the cosine similarities
-            sim_list = torch.zeros([next_step_feature.size(0), len(pert_obs_list)]).to(next_step_feature.device)
+            sim_list = torch.zeros([target_obs_feature.size(0), len(pert_obs_list)]).to(target_obs_feature.device)
             for i in range(len(pert_obs_list)):
                 pert_obs_feature = self.actor.trunk(pert_obs_list[i])
-                sim = self.cos_sim(pert_obs_feature, next_step_feature)
-                sim_list[:, i] = torch.exp(sim*self.W[i])
-            # # normalize the similarities
-            # sim_list = sim_list/torch.max(sim_list, 1)[0][:, None]
+                sim = self.cos_sim(pert_obs_feature, target_obs_feature)
+                sim_list[:, i] = torch.exp(sim*self.W)
             # cross entropy loss
-            ssloss = torch.mean(-torch.log(sim_list[:, 0]/torch.sum(sim_list, dim=1)))
-            actor_loss += 0.1*ssloss
+            for sim_i in range(time_scale_factor-2):
+                ssloss = torch.mean(-torch.log(sim_list[:, sim_i]/(sim_list[:, sim_i]+sim_list[:, sim_i+1])))
+                actor_loss += 0.1*ssloss
 
         # optimize actor
         self.actor_opt.zero_grad(set_to_none=True)
@@ -563,9 +635,7 @@ class DrQV2Agent:
         #     self.W_opt.step()
         #     if step % 1000 == 0:
         #         print('W: ')
-        #         print(self.W[0])
-        #         print(self.W[1])
-        #         print(self.W[2])
+        #         print(self.W)
 
         if self.use_tb:
             metrics['actor_loss'] = actor_loss.item()
@@ -660,7 +730,7 @@ class DrQV2Agent:
             return metrics
 
         batch = next(replay_iter)
-        obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward =\
+        obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs =\
             utils.to_torch(batch, self.device)
 
         # augment
@@ -699,7 +769,11 @@ class DrQV2Agent:
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
-        metrics.update(self.update_actor(obs_all, step, obs.float(), obs_aug, one_step_next_obs_aug))
+        # next_K_step_obs: [b,K,9,w,h]
+        next_K_step_obs = next_K_step_obs.float()
+        for k in range(next_K_step_obs.size(1)):
+            next_K_step_obs[:, k, :, :, :] = self.aug(next_K_step_obs[:, k, :, :, :])
+        metrics.update(self.update_actor(obs_all, step, obs.float(), obs_aug, one_step_next_obs_aug, next_K_step_obs))
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target,

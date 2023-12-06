@@ -23,7 +23,7 @@ def average_over_several_runs(folder):
     return mean, std, evaluation_freq/1000
 
 
-def plot_several_folders(prefix, folders, period, label_list=[], plot_or_save='save', title=""):
+def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save='save', title=""):
     plt.rcParams["figure.figsize"] = (6, 5)
     fig, axs = plt.subplots(1, 1)
     for i in range(len(folders)):
@@ -53,6 +53,10 @@ def plot_several_folders(prefix, folders, period, label_list=[], plot_or_save='s
             num_runs = len(os.listdir(folder_name))
             mean_all, std_all, eval_freq = average_over_several_runs(folder_name)
 
+            if len(mean_all) > 100:
+                mean_all = mean_all[:100]
+                std_all = std_all[:100]
+
             # plot variance
             axs.fill_between(eval_freq * range(len(mean_all)),
                     mean_all - std_all/math.sqrt(num_runs),
@@ -74,13 +78,6 @@ def plot_several_folders(prefix, folders, period, label_list=[], plot_or_save='s
         plt.savefig('saved_figs/'+title)
 
 
-# prefix = 'walker_run/'
-# folders_1 = ['baseline_action_repeat_2',
-#              ['baseline_action_repeat_2', 'baseline_action_repeat_1_load_repeat_2'],
-#              'baseline_action_repeat_2_time_ssl']
-# period = [0, 50, 0]
-# plot_several_folders(prefix, folders_1, period=period, title='walker_run_same_frames')
-#
 # prefix = 'reach_duplo/'
 # folders_1 = ['baseline_action_repeat_2',
 #              ['baseline_action_repeat_2', 'baseline_action_repeat_1_load_repeat_2'],
@@ -88,26 +85,59 @@ def plot_several_folders(prefix, folders, period, label_list=[], plot_or_save='s
 # period = [0, 50, 25]
 # plot_several_folders(prefix, folders_1, period=period, title='reach_duplo_same_frames')
 
-prefix = 'walker_run/'
-folders_1 = ['baseline_action_repeat_2',
-             'baseline_action_repeat_2_two_steps_invariance']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='walker_run_two_steps_invariance')
+# prefix = 'walker_run/'
+# folders_1 = ['baseline_action_repeat_2',
+#              'baseline_action_repeat_2_two_steps_invariance']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_two_steps_invariance')
+
+# prefix = 'walker_run/'
+# folders_1 = ['baseline_action_repeat_2',
+#              'baseline_action_repeat_2_time_ssl',
+#              'baseline_action_repeat_2_time_ssl_perturb_3', 'baseline_action_repeat_2_time_ssl_perturb_4',
+#              'baseline_action_repeat_2_time_ssl_perturb_3_trainable_temp']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_ssl')
+
+# prefix = 'walker_run/'
+# folders_1 = ['baseline_action_repeat_2',
+#              'baseline_action_repeat_2_time_ssl_backward_1',
+#              'baseline_action_repeat_2_time_ssl_backward_1_trainable_temp',
+#              'baseline_action_repeat_2_time_ssl_backward_2',
+#              'baseline_action_repeat_2_time_ssl_backward_3',
+#              'baseline_action_repeat_2_time_ssl_backward_1_random_last_two_frames']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_backward')
 
 prefix = 'walker_run/'
-folders_1 = ['baseline_action_repeat_2',
-             'baseline_action_repeat_2_time_ssl',
-             'baseline_action_repeat_2_time_ssl_perturb_3', 'baseline_action_repeat_2_time_ssl_perturb_4',
-             'baseline_action_repeat_2_time_ssl_perturb_3_trainable_temp']
+folders_1 = ['drqv2', 'baseline_action_repeat_2',
+             'baseline_action_repeat_2_time_ssl_scale_3',
+             'baseline_action_repeat_2_time_ssl_scale_4',
+             'baseline_action_repeat_2_time_ssl_scale_5']
 period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='walker_run_ssl')
+plot_several_folders(prefix, folders_1, period=period, title='walker_run_scale')
+
+prefix = 'walker_run/'
+folders_1 = ['drqv2', 'baseline_action_repeat_2',
+             ['baseline_action_repeat_2', 'baseline_action_repeat_1_load_repeat_2'],
+             'baseline_action_repeat_2_time_ssl_scale_4',
+             ['baseline_action_repeat_2_time_ssl_scale_4', 'baseline_action_repeat_1_load_repeat_2_time_ssl_time_scale_4']
+             ]
+period = [0, 0, 50, 0, 50]
+plot_several_folders(prefix, folders_1, period=period, title='walker_run_same_frames')
+
+# prefix = 'reacher_hard/'
+# folders_1 = ['baseline_action_repeat_2',
+#              'baseline_action_repeat_2_two_steps_invariance',
+#              'baseline_action_repeat_2_two_steps_invariance_weight_1']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_two_steps_invariance')
 
 prefix = 'reacher_hard/'
 folders_1 = ['baseline_action_repeat_2',
-             'baseline_action_repeat_2_two_steps_invariance',
-             'baseline_action_repeat_2_two_steps_invariance_weight_1']
+             'baseline_action_repeat_2_time_ssl_time_scale_4']
 period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_two_steps_invariance')
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_scale')
 
 # prefix = 'acrobot_swingup/'
 # folders_1 = ['drqv2', 'drqv2_dynamics_reward_model_tie_dyn_critic',
@@ -117,7 +147,21 @@ plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_two_s
 # label_list = ['drqv2', 'dyn_reward_model_tie_dyn_critic', 'action_repeat_4', 'action_repeat_8',
 #               'mimic_repeat_4_policy_decay_weight']
 # plot_several_folders(prefix, folders_1, title='acrobot_swingup', label_list=label_list)
-#
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'baseline_action_repeat_2',
+             'baseline_action_repeat_2_time_ssl_time_scale_4']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_scale')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'baseline_action_repeat_2',
+             'baseline_action_repeat_2_time_ssl_time_scale_4',
+             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_time_ssl_time_scale_4'],
+             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_step_375000_time_ssl_time_scale_4']
+             ]
+period = [0, 0, 0, 50, 75]
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_same_frames')
+
 # prefix = 'reacher_hard/'
 # folders_1 = ['drqv2', 'drqv2_dynamics_model', 'drqv2_dynamics_model_temporal_reflection',
 #              'drqv2_dynamics_reward_model', 'drqv2_dynamics_reward_model_temporal_reflection',

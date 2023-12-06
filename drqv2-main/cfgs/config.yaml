@@ -35,6 +35,7 @@ feature_dim: 50
 save_model: false
 save_every_frames: 50000
 load_model: none
+load_folder: none
 test_model: false
 
 ##### augmentation
@@ -53,6 +54,7 @@ train_dynamics_model: false
 time_reflection: false
 # temporal ssl
 time_ssl: 0
+time_ssl_K: 0
 
 
 agent:
@@ -77,6 +79,7 @@ agent:
   train_dynamics_model: ${train_dynamics_model}
   time_reflection: ${time_reflection}
   load_model: ${load_model}
+  load_folder: ${load_folder}
   task_name: ${task_name}
   test_model: ${test_model}
   seed: ${seed}
