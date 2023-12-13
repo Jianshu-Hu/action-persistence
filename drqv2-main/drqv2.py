@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import math
 import random
 
 import hydra
@@ -275,15 +276,49 @@ class DynamicsModel(nn.Module):
 
         return next_state
 
-    def forward_two_steps(self, obs, action_1, action_2):
-        h = self.trunk(obs)
-        h_action = torch.cat([h, action_1], dim=-1)
-        next_state = self.dynamics_model(h_action)
+    # def forward_two_steps(self, obs, action_1, action_2):
+    #     h = self.trunk(obs)
+    #     h_action = torch.cat([h, action_1], dim=-1)
+    #     next_state = self.dynamics_model(h_action)
+    #
+    #     h_action_next = torch.cat([next_state, action_2], dim=-1)
+    #     next_next_state = self.dynamics_model(h_action_next)
+    #
+    #     return next_next_state
 
-        h_action_next = torch.cat([next_state, action_2], dim=-1)
-        next_next_state = self.dynamics_model(h_action_next)
 
-        return next_next_state
+class InvDynamicsModel(nn.Module):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, critic_trunk):
+        super().__init__()
+
+        # self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+        #                            nn.LayerNorm(feature_dim), nn.Tanh())
+        self.trunk = critic_trunk
+
+        self.inv_dynamics_model = nn.Sequential(
+            nn.Linear(2*feature_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, feature_dim))
+
+        self.predict_action_model = nn.Sequential(
+            nn.Linear(feature_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, action_shape[0]))
+
+        self.apply(utils.weight_init)
+
+    def forward_delta_s(self, obs, next_obs):
+        h_0 = self.trunk(obs)
+        h_1 = self.trunk(next_obs)
+        h = torch.cat([h_0, h_1], dim=-1)
+        delta_s = self.inv_dynamics_model(h)
+        return delta_s
+
+    def forward(self, obs, next_obs):
+        delta_s = self.forward_delta_s(obs,next_obs)
+        predict_a = self.predict_action_model(delta_s)
+
+        return predict_a
 
 
 class DrQV2Agent:
@@ -328,8 +363,16 @@ class DrQV2Agent:
         # train a dynamics model
         self.train_dynamics_model = train_dynamics_model
         self.time_reflection = time_reflection
-        if self.train_dynamics_model:
+        if self.train_dynamics_model == 1:
             self.dynamics_model = DynamicsModel(self.encoder.repr_dim, action_shape, feature_dim,
+                             hidden_dim, self.critic.trunk).to(device)
+            self.dynamics_opt = torch.optim.Adam(self.dynamics_model.parameters(), lr=lr)
+
+            self.reward_model = RewardModel(self.encoder.repr_dim, action_shape, feature_dim,
+                             hidden_dim).to(device)
+            self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
+        elif self.train_dynamics_model == 2:
+            self.dynamics_model = InvDynamicsModel(self.encoder.repr_dim, action_shape, feature_dim,
                              hidden_dim, self.critic.trunk).to(device)
             self.dynamics_opt = torch.optim.Adam(self.dynamics_model.parameters(), lr=lr)
 
@@ -340,8 +383,8 @@ class DrQV2Agent:
 
         # temporal self-supervised loss
         self.time_ssl = time_ssl
+        self.cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-06)
         if self.time_ssl == 1:
-            self.cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-06)
             # self.W = 0.2
             self.W = nn.Parameter(torch.ones(1).to(device)/5)
             self.W_opt = torch.optim.Adam([{'params': self.W, 'lr': lr}])
@@ -384,7 +427,7 @@ class DrQV2Agent:
         self.encoder.train(training)
         self.actor.train(training)
         self.critic.train(training)
-        if self.train_dynamics_model:
+        if self.train_dynamics_model != 0:
             self.dynamics_model.train(training)
             self.reward_model.train(training)
 
@@ -420,7 +463,8 @@ class DrQV2Agent:
         tan_vector = obs_aug - obs
         return tan_vector
 
-    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, one_step_next_obs_original):
+    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, one_step_next_obs_original,
+                      next_K_step_obs):
         metrics = dict()
 
         target_all = []
@@ -495,6 +539,29 @@ class DrQV2Agent:
         #     reflect_time_critic_loss = F.mse_loss(Q1, target_Q) + F.mse_loss(Q2, target_Q)
         #     avg_critic_loss += reflect_time_critic_loss
 
+        if self.time_ssl == 3:
+            # disentangle the features
+            with torch.no_grad():
+                target_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+                target_feature = self.critic.trunk(self.encoder(target_obs))
+            # position information is invariant with respect to the change of first two frames
+            second_frame_index = np.random.randint(0, next_K_step_obs.size(1))
+            first_frame_index = np.random.randint(second_frame_index, next_K_step_obs.size(1))
+            pos_inv_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+            pos_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, -1 - first_frame_index, 0:3, :, :]
+            pos_inv_obs[:, 3:6, :, :] = next_K_step_obs[:, -1 - second_frame_index, 3:6, :, :]
+            pos_inv_feature = self.critic.trunk(self.encoder(pos_inv_obs))
+            cos_sim_1 = self.cos_sim(pos_inv_feature[:, 0:9], target_feature[:, 0:9])
+
+            # velocity information is invariant with respect to the change of first frames
+            first_frame_index = np.random.randint(0, next_K_step_obs.size(1))
+            vel_inv_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+            vel_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, -1 - first_frame_index, 0:3, :, :]
+            vel_inv_feature = self.critic.trunk(self.encoder(vel_inv_obs))
+            cos_sim_2 = self.cos_sim(vel_inv_feature[:, 9:18], target_feature[:, 9:18])
+
+            avg_critic_loss += -0.1*torch.mean(cos_sim_1+cos_sim_2)
+
         if self.use_tb:
             metrics['critic_target_q'] = target_Q.mean().item()
             metrics['critic_q1'] = Q1.mean().item()
@@ -532,6 +599,23 @@ class DrQV2Agent:
 
             KL = torch.mean(torch.distributions.kl_divergence(dist_aug_1, dist_aug_2))
             weighted_KL = 0.1 * KL
+            actor_loss += weighted_KL
+
+        if self.load_model != 'none':
+            # add a behavior cloning loss
+            with torch.no_grad():
+                scale_2_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+                scale_2_obs[:, 0:3, :, :] = next_K_step_obs[:, -3, 0:3, :, :]
+                scale_2_obs[:, 3:6, :, :] = next_K_step_obs[:, -1, 0:3, :, :]
+                mu_target, std_target = self.actor.forward_mu_std(self.encoder(scale_2_obs), stddev)
+                dist_target = torch.distributions.Normal(mu_target, std_target)
+                no_scale_feature = self.encoder(next_K_step_obs[:, -1, :, :, :])
+            mu_no_scale, std_no_scale = self.actor.forward_mu_std(no_scale_feature, stddev)
+            dist_no_scale = torch.distributions.Normal(mu_no_scale, std_no_scale)
+            bc_loss = torch.mean(torch.distributions.kl_divergence(dist_target, dist_no_scale))
+            weighted_KL = 0.1 * math.pow(0.99999, step)*bc_loss
+            if step % 5000 == 0:
+                print(weighted_KL)
             actor_loss += weighted_KL
 
         if self.time_ssl == 1:
@@ -657,40 +741,54 @@ class DrQV2Agent:
 
     def update_dynamics_reward_model(self, obs, action, reward, next_obs):
         metrics = dict()
-
-        predicted_next_obs_feature = self.dynamics_model(self.encoder(obs), action)
-        with torch.no_grad():
-            next_obs_feature = self.dynamics_model.trunk(self.encoder(next_obs))
-        dynamics_loss = torch.nn.functional.mse_loss(predicted_next_obs_feature, next_obs_feature)
-
-        # if self.time_reflection:
-        #     reflected_obs = self.time_reflect_obs(next_obs)
-        #     reflected_next_obs = self.time_reflect_obs(obs)
-        #     reflected_action = -action
-        #     reflected_predicted_next_obs_feature = self.dynamics_model(self.encoder(reflected_obs), reflected_action)
-        #     with torch.no_grad():
-        #         reflected_next_obs_feature = self.dynamics_model.trunk(self.encoder(reflected_next_obs))
-        #     dynamics_loss += torch.nn.functional.mse_loss(reflected_predicted_next_obs_feature,
-        #                                                   reflected_next_obs_feature)
-        #     dynamics_loss = dynamics_loss/2
-
-        if self.time_ssl == 2:
+        if self.train_dynamics_model == 1:
+            predicted_next_obs_feature = self.dynamics_model(self.encoder(obs), action)
             with torch.no_grad():
-                a2_weight_target = (1 + random.random() / 2)
-                a1_weight_target = (4 - a2_weight_target) / 3
-                sampled_a1_target = torch.clone(action) * a1_weight_target
-                sampled_a2_target = torch.clone(action) * a2_weight_target
-                target_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs),
-                                                                                 sampled_a1_target, sampled_a2_target)
-            a2_weight = (1+random.random()/2)
-            a1_weight = (4-a2_weight)/3
-            sampled_a1 = torch.clone(action)*a1_weight
-            sampled_a2 = torch.clone(action)*a2_weight
-            invariant_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs), sampled_a1, sampled_a2)
-            dynamics_loss += 1.0 * torch.nn.functional.mse_loss(target_two_steps_feature, invariant_two_steps_feature)
+                next_obs_feature = self.dynamics_model.trunk(self.encoder(next_obs))
+            dynamics_loss = torch.nn.functional.mse_loss(predicted_next_obs_feature, next_obs_feature)
 
-        predicted_reward = self.reward_model(predicted_next_obs_feature)
-        reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
+            # if self.time_reflection:
+            #     reflected_obs = self.time_reflect_obs(next_obs)
+            #     reflected_next_obs = self.time_reflect_obs(obs)
+            #     reflected_action = -action
+            #     reflected_predicted_next_obs_feature = self.dynamics_model(self.encoder(reflected_obs), reflected_action)
+            #     with torch.no_grad():
+            #         reflected_next_obs_feature = self.dynamics_model.trunk(self.encoder(reflected_next_obs))
+            #     dynamics_loss += torch.nn.functional.mse_loss(reflected_predicted_next_obs_feature,
+            #                                                   reflected_next_obs_feature)
+            #     dynamics_loss = dynamics_loss/2
+
+            # if self.time_ssl == 2:
+            #     with torch.no_grad():
+            #         a2_weight_target = (1 + random.random() / 2)
+            #         a1_weight_target = (4 - a2_weight_target) / 3
+            #         sampled_a1_target = torch.clone(action) * a1_weight_target
+            #         sampled_a2_target = torch.clone(action) * a2_weight_target
+            #         target_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs),
+            #                                                                          sampled_a1_target, sampled_a2_target)
+            #     a2_weight = (1+random.random()/2)
+            #     a1_weight = (4-a2_weight)/3
+            #     sampled_a1 = torch.clone(action)*a1_weight
+            #     sampled_a2 = torch.clone(action)*a2_weight
+            #     invariant_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs), sampled_a1, sampled_a2)
+            #     dynamics_loss += 1.0 * torch.nn.functional.mse_loss(target_two_steps_feature, invariant_two_steps_feature)
+
+            predicted_reward = self.reward_model(predicted_next_obs_feature)
+            reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
+        elif self.train_dynamics_model == 2:
+            delta_s = self.dynamics_model.forward_delta_s(self.encoder(obs), self.encoder(next_obs))
+            predicted_action = self.dynamics_model.predict_action_model(delta_s)
+            dynamics_loss = torch.nn.functional.mse_loss(predicted_action, action)
+
+            predicted_reward = self.reward_model(self.dynamics_model.trunk(self.encoder(next_obs)))
+            reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
+
+            # reflected_obs = self.time_reflect_obs(obs)
+            # reflected_next_obs = self.time_reflect_obs(next_obs)
+            reverse_delta_s = self.dynamics_model.forward_delta_s(self.encoder(next_obs),
+                                                                  self.encoder(obs))
+            time_reverse_loss = torch.nn.functional.mse_loss(delta_s, -reverse_delta_s)
+            dynamics_loss += time_reverse_loss
 
         loss = reward_loss+dynamics_loss
         # optimize dynamics model, reward model and encoder
@@ -744,6 +842,11 @@ class DrQV2Agent:
             with torch.no_grad():
                 next_obs_all.append(self.encoder(next_obs_aug))
 
+        # next_K_step_obs: [b,K,9,w,h]
+        next_K_step_obs = next_K_step_obs.float()
+        for k in range(next_K_step_obs.size(1)):
+            next_K_step_obs[:, k, :, :, :] = self.aug(next_K_step_obs[:, k, :, :, :])
+
         # # augment
         # obs = self.aug(obs.float())
         # next_obs = self.aug(next_obs.float())
@@ -758,21 +861,17 @@ class DrQV2Agent:
         # update critic
         metrics.update(
             self.update_critic(obs_all, action, reward, discount, next_obs_all, step,
-                               obs.float(), one_step_next_obs.float()))
+                               obs.float(), one_step_next_obs.float(), next_K_step_obs))
 
         # update dynamics and reward model
         with torch.no_grad():
             one_step_next_obs_aug = self.aug(one_step_next_obs.float())
-        if self.train_dynamics_model:
+        if self.train_dynamics_model != 0:
             metrics.update(self.update_dynamics_reward_model(obs_aug, action, one_step_reward, one_step_next_obs_aug))
 
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
-        # next_K_step_obs: [b,K,9,w,h]
-        next_K_step_obs = next_K_step_obs.float()
-        for k in range(next_K_step_obs.size(1)):
-            next_K_step_obs[:, k, :, :, :] = self.aug(next_K_step_obs[:, k, :, :, :])
         metrics.update(self.update_actor(obs_all, step, obs.float(), obs_aug, one_step_next_obs_aug, next_K_step_obs))
 
         # update critic target
@@ -791,7 +890,7 @@ class DrQV2Agent:
         torch.save(self.actor.state_dict(), filename + "_actor")
         torch.save(self.actor_opt.state_dict(), filename + "_actor_optimizer")
 
-        if self.train_dynamics_model:
+        if self.train_dynamics_model != 0:
             torch.save(self.dynamics_model.state_dict(), filename + "_dynamics_model")
             torch.save(self.dynamics_opt.state_dict(), filename + "_dynamics_optimizer")
 
@@ -815,7 +914,7 @@ class DrQV2Agent:
         self.encoder.load_state_dict(torch.load(filename + "_encoder"))
         self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
 
-        if self.train_dynamics_model:
+        if self.train_dynamics_model != 0:
             self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
             self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
 

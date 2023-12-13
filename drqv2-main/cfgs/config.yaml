@@ -49,7 +49,7 @@ add_KL_loss: false
 tangent_prop: false
 
 # dynamics model
-train_dynamics_model: false
+train_dynamics_model: 0
 # time reflection
 time_reflection: false
 # temporal ssl
