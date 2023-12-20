@@ -4,7 +4,7 @@ cd /bigdata/users/jhu/temporal-invariance/drqv2-main/
 source /bigdata/users/jhu/anaconda3/bin/activate
 conda activate equiRL
 
-tag=1_load_2_tscale_4_bc
+tag=1_load_2_tscale_4_bc_1_weig
 seed=4
 std=\'linear\(0.5,0.1,250000\)\'
 

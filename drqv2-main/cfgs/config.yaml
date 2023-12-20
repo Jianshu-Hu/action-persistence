@@ -50,11 +50,11 @@ tangent_prop: false
 
 # dynamics model
 train_dynamics_model: 0
-# time reflection
-time_reflection: false
 # temporal ssl
-time_ssl: 0
 time_ssl_K: 0
+# dynamics prior
+dyn_prior_K: 0
+state_dim: 0
 
 
 agent:
@@ -77,13 +77,14 @@ agent:
   add_KL_loss: ${add_KL_loss}
   tangent_prop: ${tangent_prop}
   train_dynamics_model: ${train_dynamics_model}
-  time_reflection: ${time_reflection}
   load_model: ${load_model}
   load_folder: ${load_folder}
   task_name: ${task_name}
   test_model: ${test_model}
   seed: ${seed}
-  time_ssl: ${time_ssl}
+  time_ssl_K : ${time_ssl_K}
+  dyn_prior_K: ${dyn_prior_K}
+  state_dim: ${state_dim}
 
 
 hydra:

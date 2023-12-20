@@ -71,7 +71,7 @@ class Workspace:
             self.work_dir / 'buffer', self.cfg.replay_buffer_size,
             self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
             self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
-            self.cfg.time_ssl_K)
+            self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
         self._replay_iter = None
 
         self.video_recorder = VideoRecorder(

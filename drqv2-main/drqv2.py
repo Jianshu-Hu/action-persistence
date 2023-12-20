@@ -326,7 +326,8 @@ class DrQV2Agent:
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
-                 time_reflection, load_model, load_folder, task_name, test_model, seed, time_ssl):
+                 time_reflection, load_model, load_folder, task_name, test_model, seed,
+                 time_ssl_K, dyn_prior_K, state_dim):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -362,7 +363,6 @@ class DrQV2Agent:
 
         # train a dynamics model
         self.train_dynamics_model = train_dynamics_model
-        self.time_reflection = time_reflection
         if self.train_dynamics_model == 1:
             self.dynamics_model = DynamicsModel(self.encoder.repr_dim, action_shape, feature_dim,
                              hidden_dim, self.critic.trunk).to(device)
@@ -381,14 +381,18 @@ class DrQV2Agent:
             self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
 
 
-        # temporal self-supervised loss
-        self.time_ssl = time_ssl
-        self.cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-06)
-        if self.time_ssl == 1:
-            # self.W = 0.2
-            self.W = nn.Parameter(torch.ones(1).to(device)/5)
-            self.W_opt = torch.optim.Adam([{'params': self.W, 'lr': lr}])
+        self.encoder_mimic = Encoder(obs_shape).to(device)
+        self.actor_mimic = Actor(self.encoder.repr_dim, action_shape, feature_dim,
+                           hidden_dim).to(device)
 
+        # temporal self-supervised loss
+        self.time_ssl_K = time_ssl_K
+        self.cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-06)
+        self.W = nn.Parameter(torch.ones(1).to(device)/5)
+        self.W_opt = torch.optim.Adam([{'params': self.W, 'lr': lr}])
+        # dynamics prior knowledge
+        self.dyn_prior_K = dyn_prior_K
+        self.state_dim = state_dim
 
         # load model
         self.work_dir = work_dir
@@ -521,46 +525,43 @@ class DrQV2Agent:
                 critic_loss_all.append(critic_loss)
             avg_critic_loss = sum(critic_loss_all) / self.aug_K
 
-        # if self.time_reflection:
-        #     with torch.no_grad():
-        #         # reflect the obs, action, next_obs
-        #         reflected_obs = self.encoder(self.time_reflect_obs(self.aug(one_step_next_obs_original)))
-        #         reflected_next_obs = self.encoder(self.time_reflect_obs(self.aug(obs_original)))
-        #         reflected_action = -action
-        #
-        #         # target Q for reflected next obs
-        #         dist = self.actor(reflected_next_obs, stddev)
-        #         next_action = dist.sample(clip=self.stddev_clip)
-        #         target_Q1, target_Q2 = self.critic_target(reflected_next_obs, next_action)
-        #         target_V = torch.min(target_Q1, target_Q2)
-        #         target_Q = reward + (discount * target_V)
-        #
-        #     Q1, Q2 = self.critic(reflected_obs, reflected_action)
-        #     reflect_time_critic_loss = F.mse_loss(Q1, target_Q) + F.mse_loss(Q2, target_Q)
-        #     avg_critic_loss += reflect_time_critic_loss
-
-        if self.time_ssl == 3:
+        if self.dyn_prior_K > 0:
             # disentangle the features
             with torch.no_grad():
-                target_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+                target_obs = torch.clone(next_K_step_obs[:, self.dyn_prior_K-1, :, :, :])
                 target_feature = self.critic.trunk(self.encoder(target_obs))
             # position information is invariant with respect to the change of first two frames
-            second_frame_index = np.random.randint(0, next_K_step_obs.size(1))
-            first_frame_index = np.random.randint(second_frame_index, next_K_step_obs.size(1))
-            pos_inv_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
-            pos_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, -1 - first_frame_index, 0:3, :, :]
-            pos_inv_obs[:, 3:6, :, :] = next_K_step_obs[:, -1 - second_frame_index, 3:6, :, :]
+            second_frame_index = np.random.randint(0, self.dyn_prior_K)
+            first_frame_index = np.random.randint(second_frame_index, self.dyn_prior_K)
+            pos_inv_obs = torch.clone(next_K_step_obs[:, self.dyn_prior_K-1, :, :, :])
+            pos_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, self.dyn_prior_K - 1 - first_frame_index, 0:3, :, :]
+            pos_inv_obs[:, 3:6, :, :] = next_K_step_obs[:, self.dyn_prior_K - 1 - second_frame_index, 3:6, :, :]
             pos_inv_feature = self.critic.trunk(self.encoder(pos_inv_obs))
-            cos_sim_1 = self.cos_sim(pos_inv_feature[:, 0:9], target_feature[:, 0:9])
+            cos_sim_1 = self.cos_sim(pos_inv_feature[:, 0:self.state_dim], target_feature[:, 0:self.state_dim])
 
             # velocity information is invariant with respect to the change of first frames
-            first_frame_index = np.random.randint(0, next_K_step_obs.size(1))
-            vel_inv_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
-            vel_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, -1 - first_frame_index, 0:3, :, :]
+            first_frame_index = np.random.randint(0, self.dyn_prior_K)
+            vel_inv_obs = torch.clone(next_K_step_obs[:, self.dyn_prior_K-1, :, :, :])
+            vel_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, self.dyn_prior_K-1 - first_frame_index, 0:3, :, :]
             vel_inv_feature = self.critic.trunk(self.encoder(vel_inv_obs))
-            cos_sim_2 = self.cos_sim(vel_inv_feature[:, 9:18], target_feature[:, 9:18])
+            cos_sim_2 = self.cos_sim(vel_inv_feature[:, self.state_dim:2*self.state_dim],
+                                     target_feature[:, self.state_dim:2*self.state_dim])
 
             avg_critic_loss += -0.1*torch.mean(cos_sim_1+cos_sim_2)
+
+            # reverse loss
+            with torch.no_grad():
+                normal_obs_feature = self.critic.trunk(self.encoder(next_K_step_obs[:, 0, :, :, :]))
+                reflected_obs = self.time_reflect_obs(next_K_step_obs[:, 2, :, :, :])
+            reflected_feature = self.critic.trunk(self.encoder(reflected_obs))
+            # position information is invariant with respect to the time reversal
+            cos_sim_3 = self.cos_sim(reflected_feature[:, 0:self.state_dim], normal_obs_feature[:, 0:self.state_dim])
+
+            # velocity information is equivariant with respect to the time reversal
+            cos_sim_4 = self.cos_sim(reflected_feature[:, self.state_dim:2*self.state_dim],
+                                     -normal_obs_feature[:, self.state_dim:2*self.state_dim])
+
+            avg_critic_loss += -0.1*torch.mean(cos_sim_3+cos_sim_4)
 
         if self.use_tb:
             metrics['critic_target_q'] = target_Q.mean().item()
@@ -577,7 +578,7 @@ class DrQV2Agent:
 
         return metrics
 
-    def update_actor(self, obs, step, obs_original, obs_aug, one_step_next_obs_aug, next_K_step_obs):
+    def update_actor(self, obs, step, obs_original, obs_aug, one_step_next_obs_aug, next_K_step_obs, t_index):
         metrics = dict()
 
         stddev = utils.schedule(self.stddev_schedule, step)
@@ -603,96 +604,45 @@ class DrQV2Agent:
 
         if self.load_model != 'none':
             # add a behavior cloning loss
+            index_last_obs = t_index + next_K_step_obs.size(1)
+            even_index = torch.reshape(1-(index_last_obs % 2), (-1,))
+            even = torch.argwhere(even_index).view(-1)
+            odd = torch.argwhere(1-even_index).view(-1)
+
+            # even index, choose action
             with torch.no_grad():
-                scale_2_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
-                scale_2_obs[:, 0:3, :, :] = next_K_step_obs[:, -3, 0:3, :, :]
-                scale_2_obs[:, 3:6, :, :] = next_K_step_obs[:, -1, 0:3, :, :]
-                mu_target, std_target = self.actor.forward_mu_std(self.encoder(scale_2_obs), stddev)
-                dist_target = torch.distributions.Normal(mu_target, std_target)
-                no_scale_feature = self.encoder(next_K_step_obs[:, -1, :, :, :])
+                scale_2_obs = torch.clone(next_K_step_obs[even, -1, :, :, :])
+                scale_2_obs[:, 0:3, :, :] = next_K_step_obs[even, -3, 0:3, :, :]
+                scale_2_obs[:, 3:6, :, :] = next_K_step_obs[even, -1, 0:3, :, :]
+                mu_target, std_target = self.actor_mimic.forward_mu_std(self.encoder_mimic(scale_2_obs), stddev)
+                no_scale_feature = self.encoder(next_K_step_obs[even, -1, :, :, :])
             mu_no_scale, std_no_scale = self.actor.forward_mu_std(no_scale_feature, stddev)
-            dist_no_scale = torch.distributions.Normal(mu_no_scale, std_no_scale)
-            bc_loss = torch.mean(torch.distributions.kl_divergence(dist_target, dist_no_scale))
-            weighted_KL = 0.1 * math.pow(0.99999, step)*bc_loss
+            bc_loss = torch.nn.functional.mse_loss(mu_target, mu_no_scale)
+
+            # odd index, repeat
+            with torch.no_grad():
+                mu_repeat, std_repeat = self.actor_mimic.forward_mu_std(self.encoder_mimic(
+                    next_K_step_obs[odd, -2, :, :, :]), stddev)
+                to_repeat_feature = self.encoder(next_K_step_obs[odd, -1, :, :, :])
+            mu_to_repeat, std_to_repeat = self.actor.forward_mu_std(to_repeat_feature, stddev)
+            bc_loss += torch.nn.functional.mse_loss(mu_repeat, mu_to_repeat)
+
+            weighted_KL = 1.0 * math.pow(0.99999, step)*bc_loss
             if step % 5000 == 0:
                 print(weighted_KL)
             actor_loss += weighted_KL
 
-        if self.time_ssl == 1:
-            # fix last frame
-            # for k in range(next_K_step_obs.size(1)-1):
-            #     target_obs = next_K_step_obs[:, -1, :, :, :]
-            #     initial_obs = next_K_step_obs[:, k, :, :, :]
-            #     with torch.no_grad():
-            #         pert_obs_list = []
-            #         pos_obs = torch.clone(target_obs)
-            #         pos_obs[:, 0:3, :, :] = initial_obs[:, 0:3, :, :]
-            #         pert_obs_list.append(self.encoder(pos_obs))
-            #         for i in range(k, next_K_step_obs.size(1)):
-            #             pert_obs = torch.clone(target_obs)
-            #             pert_obs[:, 0:3, :, :] = initial_obs[:, 0:3, :, :]
-            #             pert_obs[:, 3:6, :, :] = next_K_step_obs[:, i, 0:3, :, :]
-            #             pert_obs_list.append(self.encoder(pert_obs))
-            #         target_obs_feature = self.actor.trunk(self.encoder(target_obs))
-            #
-            #     # calculate the cosine similarities
-            #     sim_list = torch.zeros([target_obs_feature.size(0), len(pert_obs_list)]).to(target_obs_feature.device)
-            #     for i in range(len(pert_obs_list)):
-            #         pert_obs_feature = self.actor.trunk(pert_obs_list[i])
-            #         sim = self.cos_sim(pert_obs_feature, target_obs_feature)
-            #         sim_list[:, i] = torch.exp(sim*self.W)
-            #     # # normalize the similarities
-            #     # sim_list = sim_list/torch.max(sim_list, 1)[0][:, None]
-            #     # cross entropy loss
-            #     ssloss = torch.mean(-torch.log(sim_list[:, 0]/torch.sum(sim_list, dim=1)))
-            #     actor_loss += 0.1*ssloss
-
-            # # random choose last two frames
-            # for k in range(next_K_step_obs.size(1)-1):
-            #     target_obs = next_K_step_obs[:, -1, :, :, :]
-            #     initial_obs = next_K_step_obs[:, k, :, :, :]
-            #     with torch.no_grad():
-            #         pert_obs_list = []
-            #         # perturb the first frame
-            #         pos_obs = torch.clone(target_obs)
-            #         pos_obs[:, 0:3, :, :] = initial_obs[:, 0:3, :, :]
-            #         pert_obs_list.append(self.encoder(pos_obs))
-            #         # perturb the first and second frame
-            #         neg1_obs = torch.clone(pos_obs)
-            #         neg1_indx = random.randint(k, next_K_step_obs.size(1)-2)
-            #         neg1_obs[:, 3:6, :, :] = next_K_step_obs[:, neg1_indx, 3:6, :, :]
-            #         pert_obs_list.append(self.encoder(neg1_obs))
-            #         # perturb the all three frames
-            #         neg2_obs = torch.clone(neg1_obs)
-            #         neg2_indx = random.randint(neg1_indx, next_K_step_obs.size(1)-2)
-            #         neg2_obs[:, 6:9, :, :] = next_K_step_obs[:, neg2_indx, 6:9, :, :]
-            #         pert_obs_list.append(self.encoder(neg2_obs))
-            #
-            #         target_obs_feature = self.actor.trunk(self.encoder(target_obs))
-            #
-            #     # calculate the cosine similarities
-            #     sim_list = torch.zeros([target_obs_feature.size(0), len(pert_obs_list)]).to(target_obs_feature.device)
-            #     for i in range(len(pert_obs_list)):
-            #         pert_obs_feature = self.actor.trunk(pert_obs_list[i])
-            #         sim = self.cos_sim(pert_obs_feature, target_obs_feature)
-            #         sim_list[:, i] = torch.exp(sim*self.W)
-            #     # # normalize the similarities
-            #     # sim_list = sim_list/torch.max(sim_list, 1)[0][:, None]
-            #     # cross entropy loss
-            #     ssloss = torch.mean(-torch.log(sim_list[:, 0]/torch.sum(sim_list, dim=1)))
-            #     actor_loss += 0.1*ssloss
-
+        if self.time_ssl_K > 0:
             # previous states
             # s_t = (nt-2n,nt-n,nt)
             # s_{t-1} = (nt-3n,nt-2n,nt-n)
             # s_{t-2} = (nt-4n,nt-3n,nt-2n)
             # ...
             # s_{t-k} = (nt-(k+2)n,nt-(k+1)n,nt-kn)
-            time_scale_factor = int((next_K_step_obs.size(1)+1)/2)
             with torch.no_grad():
                 target_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
                 pert_obs_list = []
-                for scale in range(1, time_scale_factor):
+                for scale in range(1, self.time_ssl_K):
                     obs_scale = torch.clone(next_K_step_obs[:, -1, :, :, :])
                     obs_scale[:, 0:3, :, :] = next_K_step_obs[:, -(scale*2+1), 0:3, :, :]
                     obs_scale[:, 3:6, :, :] = next_K_step_obs[:, -scale, 0:3, :, :]
@@ -704,10 +654,14 @@ class DrQV2Agent:
                 pert_obs_feature = self.actor.trunk(pert_obs_list[i])
                 sim = self.cos_sim(pert_obs_feature, target_obs_feature)
                 sim_list[:, i] = torch.exp(sim*self.W)
-            # cross entropy loss
-            for sim_i in range(time_scale_factor-2):
+            # # cross entropy loss
+            for sim_i in range(self.time_ssl_K-2):
                 ssloss = torch.mean(-torch.log(sim_list[:, sim_i]/(sim_list[:, sim_i]+sim_list[:, sim_i+1])))
                 actor_loss += 0.1*ssloss
+            # Rank-N-Contrast
+            # for sim_i in range(self.time_ssl_K-2):
+            #     ssloss = torch.mean(-torch.log(sim_list[:, sim_i]/torch.sum(sim_list[:, sim_i:], dim=-1)))
+            #     actor_loss += 0.1*ssloss
 
         # optimize actor
         self.actor_opt.zero_grad(set_to_none=True)
@@ -727,7 +681,7 @@ class DrQV2Agent:
             metrics['actor_ent'] = dist.entropy().sum(dim=-1).mean().item()
             if self.add_KL_loss:
                 metrics['actor_KL_loss'] = KL.item()
-            if self.time_ssl == 1:
+            if self.time_ssl_K > 0:
                 metrics['ss_loss'] = ssloss.item()
 
         return metrics
@@ -739,39 +693,13 @@ class DrQV2Agent:
             reflected_obs[:, 3 * i:3 * (i + 1), :, :] = obs[:, obs.size(1)-3 * (i + 1):obs.size(1)-3 * i, :, :]
         return reflected_obs
 
-    def update_dynamics_reward_model(self, obs, action, reward, next_obs):
+    def update_dynamics_reward_model(self, obs, action, reward, next_obs, next_K_obs):
         metrics = dict()
         if self.train_dynamics_model == 1:
             predicted_next_obs_feature = self.dynamics_model(self.encoder(obs), action)
             with torch.no_grad():
                 next_obs_feature = self.dynamics_model.trunk(self.encoder(next_obs))
             dynamics_loss = torch.nn.functional.mse_loss(predicted_next_obs_feature, next_obs_feature)
-
-            # if self.time_reflection:
-            #     reflected_obs = self.time_reflect_obs(next_obs)
-            #     reflected_next_obs = self.time_reflect_obs(obs)
-            #     reflected_action = -action
-            #     reflected_predicted_next_obs_feature = self.dynamics_model(self.encoder(reflected_obs), reflected_action)
-            #     with torch.no_grad():
-            #         reflected_next_obs_feature = self.dynamics_model.trunk(self.encoder(reflected_next_obs))
-            #     dynamics_loss += torch.nn.functional.mse_loss(reflected_predicted_next_obs_feature,
-            #                                                   reflected_next_obs_feature)
-            #     dynamics_loss = dynamics_loss/2
-
-            # if self.time_ssl == 2:
-            #     with torch.no_grad():
-            #         a2_weight_target = (1 + random.random() / 2)
-            #         a1_weight_target = (4 - a2_weight_target) / 3
-            #         sampled_a1_target = torch.clone(action) * a1_weight_target
-            #         sampled_a2_target = torch.clone(action) * a2_weight_target
-            #         target_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs),
-            #                                                                          sampled_a1_target, sampled_a2_target)
-            #     a2_weight = (1+random.random()/2)
-            #     a1_weight = (4-a2_weight)/3
-            #     sampled_a1 = torch.clone(action)*a1_weight
-            #     sampled_a2 = torch.clone(action)*a2_weight
-            #     invariant_two_steps_feature = self.dynamics_model.forward_two_steps(self.encoder(obs), sampled_a1, sampled_a2)
-            #     dynamics_loss += 1.0 * torch.nn.functional.mse_loss(target_two_steps_feature, invariant_two_steps_feature)
 
             predicted_reward = self.reward_model(predicted_next_obs_feature)
             reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
@@ -783,11 +711,17 @@ class DrQV2Agent:
             predicted_reward = self.reward_model(self.dynamics_model.trunk(self.encoder(next_obs)))
             reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
 
-            # reflected_obs = self.time_reflect_obs(obs)
-            # reflected_next_obs = self.time_reflect_obs(next_obs)
-            reverse_delta_s = self.dynamics_model.forward_delta_s(self.encoder(next_obs),
-                                                                  self.encoder(obs))
-            time_reverse_loss = torch.nn.functional.mse_loss(delta_s, -reverse_delta_s)
+            # time reverse loss
+            original_delta_s = self.dynamics_model.forward_delta_s(self.encoder(next_K_obs[:, 0, :, :, :]),
+                                                                   self.encoder(next_K_obs[:, 1, :, :, :]))
+            reflected_obs = self.time_reflect_obs(next_K_obs[:, 2, :, :, :])
+            reflected_next_obs = self.time_reflect_obs(next_K_obs[:, 3, :, :, :])
+            reverse_delta_s = self.dynamics_model.forward_delta_s(self.encoder(reflected_obs),
+                                                                  self.encoder(reflected_next_obs))
+            time_reverse_loss = torch.nn.functional.mse_loss(original_delta_s, -reverse_delta_s)
+            # reverse_delta_s = self.dynamics_model.forward_delta_s(self.encoder(next_obs),
+            #                                                       self.encoder(obs))
+            # time_reverse_loss = torch.nn.functional.mse_loss(delta_s, -reverse_delta_s)
             dynamics_loss += time_reverse_loss
 
         loss = reward_loss+dynamics_loss
@@ -828,7 +762,7 @@ class DrQV2Agent:
             return metrics
 
         batch = next(replay_iter)
-        obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs =\
+        obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index =\
             utils.to_torch(batch, self.device)
 
         # augment
@@ -867,12 +801,14 @@ class DrQV2Agent:
         with torch.no_grad():
             one_step_next_obs_aug = self.aug(one_step_next_obs.float())
         if self.train_dynamics_model != 0:
-            metrics.update(self.update_dynamics_reward_model(obs_aug, action, one_step_reward, one_step_next_obs_aug))
+            metrics.update(self.update_dynamics_reward_model(obs_aug, action, one_step_reward,
+                                                             one_step_next_obs_aug, next_K_step_obs))
 
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
-        metrics.update(self.update_actor(obs_all, step, obs.float(), obs_aug, one_step_next_obs_aug, next_K_step_obs))
+        metrics.update(self.update_actor(obs_all, step, obs.float(), obs_aug, one_step_next_obs_aug,
+                                         next_K_step_obs, t_index))
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target,
@@ -910,6 +846,9 @@ class DrQV2Agent:
 
             self.actor.load_state_dict(torch.load(filename + "_actor"))
             self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+
+        self.actor_mimic.load_state_dict(torch.load(filename + "_actor"))
+        self.encoder_mimic.load_state_dict(torch.load(filename + "_encoder"))
 
         self.encoder.load_state_dict(torch.load(filename + "_encoder"))
         self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))

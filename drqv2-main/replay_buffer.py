@@ -80,7 +80,7 @@ class ReplayBufferStorage:
 
 class ReplayBuffer(IterableDataset):
     def __init__(self, replay_dir, max_size, num_workers, nstep, discount,
-                 fetch_every, save_snapshot, test_model, time_ssl_K):
+                 fetch_every, save_snapshot, test_model, time_ssl_K, dyn_prior_K):
         self._replay_dir = replay_dir
         self._size = 0
         self._max_size = max_size
@@ -97,6 +97,7 @@ class ReplayBuffer(IterableDataset):
         self._test_model = test_model
         # sample K steps obs for calculating temporal ssl
         self._time_ssl_K = time_ssl_K
+        self._dyn_prior_K = dyn_prior_K
 
     def _sample_episode(self):
         eps_fn = random.choice(self._episode_fns)
@@ -173,12 +174,15 @@ class ReplayBuffer(IterableDataset):
         one_step_reward = episode['reward'][idx]
 
         # next k step for temporal ssl
-        num_next_steps = int(2*self._time_ssl_K-1)
+        num_next_steps_1 = int(2 * self._time_ssl_K - 1)
+        num_next_steps_2 = self._dyn_prior_K
+        num_next_steps = max(num_next_steps_1, num_next_steps_2, 1)
         idx_temporal_ssl = np.random.randint(0, episode_len(episode) - num_next_steps + 1) + 1
         next_K_step_obs = np.zeros([num_next_steps, obs.shape[0], obs.shape[1], obs.shape[2]], dtype=obs.dtype)
         for k in range(num_next_steps):
-            next_K_step_obs[k, :, :, :] = episode['observation'][idx_temporal_ssl-1+k]
-        return (obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs)
+            next_K_step_obs[k, :, :, :] = episode['observation'][idx_temporal_ssl - 1 + k]
+        return (obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs,
+                np.array([idx_temporal_ssl-1]))
 
     def __iter__(self):
         while True:
@@ -192,7 +196,7 @@ def _worker_init_fn(worker_id):
 
 
 def make_replay_loader(replay_dir, max_size, batch_size, num_workers,
-                       save_snapshot, nstep, discount, test_model, time_ssl_K):
+                       save_snapshot, nstep, discount, test_model, time_ssl_K, dyn_prior_K):
     max_size_per_worker = max_size // max(1, num_workers)
 
     iterable = ReplayBuffer(replay_dir,
@@ -203,7 +207,8 @@ def make_replay_loader(replay_dir, max_size, batch_size, num_workers,
                             fetch_every=1000,
                             save_snapshot=save_snapshot,
                             test_model=test_model,
-                            time_ssl_K=time_ssl_K)
+                            time_ssl_K=time_ssl_K,
+                            dyn_prior_K=dyn_prior_K)
 
     loader = torch.utils.data.DataLoader(iterable,
                                          batch_size=batch_size,
