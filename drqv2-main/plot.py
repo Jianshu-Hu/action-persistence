@@ -153,7 +153,8 @@ folders_1 = ['drqv2', 'baseline_action_repeat_2',
              'baseline_action_repeat_2_dyn_prior_5_previous_obs',
              'baseline_action_repeat_2_dyn_prior_9_previous_obs',
              'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss',
-             'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss_15_states']
+             'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss_15_states',
+             'baseline_action_repeat_2_dyn_prior_5_time_ssl_4']
 period = [0, 0]
 plot_several_folders(prefix, folders_1, period=period, title='walker_run_dyn_prior')
 

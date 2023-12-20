@@ -52,8 +52,10 @@ tangent_prop: false
 train_dynamics_model: 0
 # temporal ssl
 time_ssl_K: 0
+time_ssl_weight: 0.1
 # dynamics prior
 dyn_prior_K: 0
+dyn_prior_weight: 0.1
 state_dim: 0
 
 
@@ -83,7 +85,9 @@ agent:
   test_model: ${test_model}
   seed: ${seed}
   time_ssl_K : ${time_ssl_K}
+  time_ssl_weight : ${time_ssl_weight}
   dyn_prior_K: ${dyn_prior_K}
+  dyn_prior_weight : ${dyn_prior_weight}
   state_dim: ${state_dim}
 
 
