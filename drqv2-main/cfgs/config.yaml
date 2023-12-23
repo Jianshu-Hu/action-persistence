@@ -34,6 +34,7 @@ feature_dim: 50
 # save model
 save_model: false
 save_every_frames: 50000
+# load model trained with larger action repeat
 load_model: none
 load_folder: none
 test_model: false

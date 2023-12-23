@@ -85,25 +85,25 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
 # period = [0, 50, 25]
 # plot_several_folders(prefix, folders_1, period=period, title='reach_duplo_same_frames')
 
-prefix = 'cheetah_run/'
-folders_1 = ['drqv2', 'baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_dyn_prior')
-
-prefix = 'hopper_hop/'
-folders_1 = ['drqv2', 'baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_dyn_prior')
-
-prefix = 'fish_swim/'
-folders_1 = ['baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='fish_swim_dyn_prior')
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_dyn_prior')
+# prefix = 'cheetah_run/'
+# folders_1 = ['drqv2', 'baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_dyn_prior')
+#
+# prefix = 'hopper_hop/'
+# folders_1 = ['drqv2', 'baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_dyn_prior')
+#
+# prefix = 'fish_swim/'
+# folders_1 = ['baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='fish_swim_dyn_prior')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'baseline', 'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_dyn_prior')
 
 # prefix = 'walker_run/'
 # folders_1 = ['baseline_action_repeat_2',
@@ -129,14 +129,14 @@ plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_dyn_
 # period = [0, 0]
 # plot_several_folders(prefix, folders_1, period=period, title='walker_run_backward')
 
-prefix = 'walker_run/'
-folders_1 = ['drqv2', 'baseline_action_repeat_2',
-             'baseline_action_repeat_2_time_ssl_scale_3',
-             'baseline_action_repeat_2_time_ssl_scale_4',
-             'baseline_action_repeat_2_time_ssl_scale_5',
-             'baseline_action_repeat_2_time_ssl_scale_4_rank_k']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='walker_run_scale')
+# prefix = 'walker_run/'
+# folders_1 = ['drqv2', 'baseline_action_repeat_2',
+#              'baseline_action_repeat_2_time_ssl_scale_3',
+#              'baseline_action_repeat_2_time_ssl_scale_4',
+#              'baseline_action_repeat_2_time_ssl_scale_5',
+#              'baseline_action_repeat_2_time_ssl_scale_4_rank_k']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_scale')
 
 
 # prefix = 'walker_run/'
@@ -158,15 +158,15 @@ folders_1 = ['drqv2', 'baseline_action_repeat_2',
 period = [0, 0]
 plot_several_folders(prefix, folders_1, period=period, title='walker_run_dyn_prior')
 
-prefix = 'walker_run/'
-folders_1 = ['drqv2', 'baseline_action_repeat_2',
-             'inv_dyn_model',
-             'inv_dyn_model_reflected_obs_loss',
-             'inv_dyn_model_reflected_obs_loss_time_ssl_time_scale_4',
-             'inv_dyn_model_reverse_loss_wo_reflect',
-             'inv_dyn_model_true_reflected_loss']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='walker_run_inv_dyn')
+# prefix = 'walker_run/'
+# folders_1 = ['drqv2', 'baseline_action_repeat_2',
+#              'inv_dyn_model',
+#              'inv_dyn_model_reflected_obs_loss',
+#              'inv_dyn_model_reflected_obs_loss_time_ssl_time_scale_4',
+#              'inv_dyn_model_reverse_loss_wo_reflect',
+#              'inv_dyn_model_true_reflected_loss']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_inv_dyn')
 
 
 # prefix = 'reacher_hard/'
@@ -187,22 +187,46 @@ plot_several_folders(prefix, folders_1, period=period, title='walker_run_inv_dyn
 #              'inv_dyn_model_reverse_loss_wo_reflect']
 # plot_several_folders(prefix, folders_1, title='acrobot_swingup_inv_dyn')
 
-#
+
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'baseline_action_repeat_2',
+#              'baseline_action_repeat_2_time_ssl_time_scale_4',
+#              ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_time_ssl_time_scale_4'],
+#              ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_step_375000_time_ssl_time_scale_4'],
+#             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_add_bc_loss_repeat'],
+#             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_add_bc_loss_repeat_weight_1'],
+#              ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_choose_action_bc']
+#              ]
+# period = [0, 0, 0, 50, 75, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_same_frames')
+
 prefix = 'acrobot_swingup/'
 folders_1 = ['drqv2', 'baseline_action_repeat_2',
              'baseline_action_repeat_2_time_ssl_time_scale_4',
-             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_time_ssl_time_scale_4'],
-             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_step_375000_time_ssl_time_scale_4'],
-            ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_add_bc_loss_repeat'],
-            ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_add_bc_loss_repeat_weight_1']
+             'baseline_action_repeat_4',
+             ['baseline_action_repeat_2_time_ssl_time_scale_4', 'baseline_action_repeat_1_load_2_choose_action_bc'],
+             ['baseline_action_repeat_2_time_ssl_time_scale_4',
+              'baseline_action_repeat_1_load_2_choose_action_bc_08'],
+             ['baseline_action_repeat_4',
+              'baseline_action_repeat_2_load_4_choose_action_bc_08']
              ]
-period = [0, 0, 0, 50, 75, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_same_frames')
-
+period = [0, 0, 0, 0, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_same_frames_bc')
 
 prefix = 'acrobot_swingup/'
 folders_1 = ['drqv2', 'baseline_action_repeat_2',
-             'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss']
+             'baseline_action_repeat_2_time_ssl_time_scale_4',
+             'baseline_action_repeat_2_time_ssl_K_4_critic',
+             'baseline_action_repeat_4',
+             'baseline_action_repeat_4_time_ssl_K_4_actor',
+             'baseline_action_repeat_4_time_ssl_K_4_critic']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_scale')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'baseline_action_repeat_2',
+             'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss',
+             'baseline_action_repeat_2_dyn_prior_5_previous_reverse_loss_state_20',
+             'baseline_action_repeat_2_dyn_prior_5_previous_state_20']
 plot_several_folders(prefix, folders_1, title='acrobot_swingup_dyn_prior')
 
 # prefix = 'acrobot_swingup/'
@@ -213,11 +237,6 @@ plot_several_folders(prefix, folders_1, title='acrobot_swingup_dyn_prior')
 # label_list = ['drqv2', 'dyn_reward_model_tie_dyn_critic', 'action_repeat_4', 'action_repeat_8',
 #               'mimic_repeat_4_policy_decay_weight']
 # plot_several_folders(prefix, folders_1, title='acrobot_swingup', label_list=label_list)
-
-# prefix = 'acrobot_swingup/'
-# folders_1 = ['drqv2', 'baseline_action_repeat_2',
-#              'baseline_action_repeat_2_time_ssl_time_scale_4']
-# plot_several_folders(prefix, folders_1, title='acrobot_swingup_scale')
 
 # prefix = 'reacher_hard/'
 # folders_1 = ['drqv2', 'drqv2_dynamics_model', 'drqv2_dynamics_model_temporal_reflection',
