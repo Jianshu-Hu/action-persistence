@@ -555,32 +555,34 @@ class DrQV2Agent:
             pos_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, self.dyn_prior_K - 1 - first_frame_index, 0:3, :, :]
             pos_inv_obs[:, 3:6, :, :] = next_K_step_obs[:, self.dyn_prior_K - 1 - second_frame_index, 3:6, :, :]
             pos_inv_feature = self.critic.trunk(self.encoder(pos_inv_obs))
-            cos_sim_1 = self.cos_sim(pos_inv_feature[:, 0:self.state_dim], target_feature[:, 0:self.state_dim])
+            mse_1 = torch.nn.functional.mse_loss(pos_inv_feature[:, 0:self.state_dim], target_feature[:, 0:self.state_dim])
 
             # velocity information is invariant with respect to the change of first frames
             first_frame_index = np.random.randint(0, self.dyn_prior_K)
             vel_inv_obs = torch.clone(next_K_step_obs[:, self.dyn_prior_K-1, :, :, :])
             vel_inv_obs[:, 0:3, :, :] = next_K_step_obs[:, self.dyn_prior_K-1 - first_frame_index, 0:3, :, :]
             vel_inv_feature = self.critic.trunk(self.encoder(vel_inv_obs))
-            cos_sim_2 = self.cos_sim(vel_inv_feature[:, self.state_dim:2*self.state_dim],
+            mse_2 = torch.nn.functional.mse_loss(vel_inv_feature[:, self.state_dim:2*self.state_dim],
                                      target_feature[:, self.state_dim:2*self.state_dim])
 
-            dyn_prior_loss = -torch.mean(cos_sim_1+cos_sim_2)
+            # dyn_prior_loss = -torch.mean(cos_sim_1+cos_sim_2)
+            dyn_prior_loss = mse_1+mse_2
             avg_critic_loss += self.dyn_prior_weight*dyn_prior_loss
 
             # reverse loss
             with torch.no_grad():
                 normal_obs_feature = self.critic.trunk(self.encoder(next_K_step_obs[:, 0, :, :, :]))
-                reflected_obs = self.time_reflect_obs(next_K_step_obs[:, 2, :, :, :])
+                reflected_obs = self.time_reflect_obs(next_K_step_obs[:, 1, :, :, :])
             reflected_feature = self.critic.trunk(self.encoder(reflected_obs))
             # position information is invariant with respect to the time reversal
-            cos_sim_3 = self.cos_sim(reflected_feature[:, 0:self.state_dim], normal_obs_feature[:, 0:self.state_dim])
+            # cos_sim_3 = self.cos_sim(reflected_feature[:, 0:self.state_dim], normal_obs_feature[:, 0:self.state_dim])
 
             # velocity information is equivariant with respect to the time reversal
-            cos_sim_4 = self.cos_sim(reflected_feature[:, self.state_dim:2*self.state_dim],
+            mse_4 = torch.nn.functional.mse_loss(reflected_feature[:, self.state_dim:2*self.state_dim],
                                      -normal_obs_feature[:, self.state_dim:2*self.state_dim])
 
-            temporal_reverse_loss = -torch.mean(cos_sim_3+cos_sim_4)
+            # temporal_reverse_loss = -torch.mean(cos_sim_3+cos_sim_4)
+            temporal_reverse_loss = mse_4
             avg_critic_loss += self.dyn_prior_weight*temporal_reverse_loss
 
         if self.time_ssl_K > 0:
@@ -741,8 +743,8 @@ class DrQV2Agent:
             if self.add_KL_loss:
                 metrics['actor_KL_loss'] = KL.item()
 
-            if self.time_ssl_K > 0:
-                metrics['ss_loss'] = ssloss.item()
+            # if self.time_ssl_K > 0:
+            #     metrics['ss_loss'] = ssloss.item()
 
         return metrics
 
