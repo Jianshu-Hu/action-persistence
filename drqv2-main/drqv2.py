@@ -321,6 +321,35 @@ class InvDynamicsModel(nn.Module):
         return predict_a
 
 
+class DisentangledDynamicsModel(nn.Module):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, critic_trunk):
+        super().__init__()
+
+        # self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+        #                            nn.LayerNorm(feature_dim), nn.Tanh())
+        self.trunk = critic_trunk
+
+        self.linear_dynamics_model = nn.Sequential(
+            nn.Linear(feature_dim+action_shape[0], hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, feature_dim))
+
+        self.nonlinear_dynamics_model = nn.Sequential(
+            nn.Linear(feature_dim+action_shape[0], hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, feature_dim))
+
+        self.apply(utils.weight_init)
+
+    def forward(self, obs, action):
+        h = self.trunk(obs)
+        h_action = torch.cat([h, action], dim=-1)
+        delta_s_linear = self.linear_dynamics_model(h_action)
+        delta_s_nonlinear = self.nonlinear_dynamics_model(h_action)
+
+        return delta_s_linear, delta_s_nonlinear
+
+
 class DrQV2Agent:
     def __init__(self, obs_shape, action_shape, work_dir, device, lr, feature_dim,
                  hidden_dim, critic_target_tau, num_expl_steps,
@@ -373,6 +402,14 @@ class DrQV2Agent:
             self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
         elif self.train_dynamics_model == 2:
             self.dynamics_model = InvDynamicsModel(self.encoder.repr_dim, action_shape, feature_dim,
+                             hidden_dim, self.critic.trunk).to(device)
+            self.dynamics_opt = torch.optim.Adam(self.dynamics_model.parameters(), lr=lr)
+
+            self.reward_model = RewardModel(self.encoder.repr_dim, action_shape, feature_dim,
+                             hidden_dim).to(device)
+            self.reward_opt = torch.optim.Adam(self.reward_model.parameters(), lr=lr)
+        elif self.train_dynamics_model == 3:
+            self.dynamics_model = DisentangledDynamicsModel(self.encoder.repr_dim, action_shape, feature_dim,
                              hidden_dim, self.critic.trunk).to(device)
             self.dynamics_opt = torch.optim.Adam(self.dynamics_model.parameters(), lr=lr)
 
@@ -778,7 +815,7 @@ class DrQV2Agent:
             mu_to_repeat, std_to_repeat = self.actor.forward_mu_std(to_repeat_feature, std=0)
             bc_loss += torch.nn.functional.mse_loss(mu_repeat, mu_to_repeat)
 
-            weighted_bc_loss = 1.0 * math.pow(0.99999, step)*bc_loss
+            weighted_bc_loss = 1.0 * math.pow(0.9999, step)*bc_loss
             if step % 1000 == 0:
                 print(weighted_bc_loss)
             self.actor_opt.zero_grad(set_to_none=True)
@@ -824,6 +861,33 @@ class DrQV2Agent:
             #                                                       self.encoder(obs))
             # time_reverse_loss = torch.nn.functional.mse_loss(delta_s, -reverse_delta_s)
             dynamics_loss += time_reverse_loss
+        elif self.train_dynamics_model == 3:
+            encoded_obs = self.encoder(obs)
+            obs_feature = self.dynamics_model.trunk(encoded_obs)
+            linear_delta_s, nonlinear_delta_s = self.dynamics_model(encoded_obs, action)
+            predicted_next_obs_feature = obs_feature+linear_delta_s+nonlinear_delta_s
+            with torch.no_grad():
+                next_obs_feature = self.dynamics_model.trunk(self.encoder(next_obs))
+            dynamics_loss = torch.nn.functional.mse_loss(predicted_next_obs_feature, next_obs_feature)
+
+            predicted_reward = self.reward_model(predicted_next_obs_feature)
+            reward_loss = torch.nn.functional.mse_loss(predicted_reward, reward)
+
+            # linear loss
+            scale_1 = (0.5+torch.rand(action.size(0), 1).to(action.device))
+            scale_2 = (0.5 + torch.rand(action.size(0), 1).to(action.device))
+            scale_1_delta_s, nonlinear_scale1_delta_s = self.dynamics_model(encoded_obs, scale_1 * action)
+            scale_2_delta_s, nonlinear_scale2_delta_s = self.dynamics_model(encoded_obs, scale_2 * action)
+            linear_loss = torch.nn.functional.mse_loss((linear_delta_s.detach()-scale_1_delta_s)*(1-scale_2),
+                                                       (linear_delta_s.detach()-scale_2_delta_s)*(1-scale_1))
+            dynamics_loss += linear_loss
+
+            # non-linear loss
+            l1loss = torch.nn.L1Loss()
+            non_linear_loss = l1loss(nonlinear_delta_s,
+                                              torch.zeros_like(nonlinear_delta_s).to(nonlinear_delta_s.device))
+            dynamics_loss += non_linear_loss
+
 
         loss = reward_loss+dynamics_loss
         # optimize dynamics model, reward model and encoder
@@ -940,6 +1004,7 @@ class DrQV2Agent:
 
             self.actor.load(filename)
         else:
+            # pass
             self.critic.load_state_dict(torch.load(filename + "_critic"))
             self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
             self.critic_target.load_state_dict(self.critic.state_dict())

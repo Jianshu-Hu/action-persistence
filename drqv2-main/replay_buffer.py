@@ -45,13 +45,16 @@ class ReplayBufferStorage:
     def __len__(self):
         return self._num_transitions
 
-    def add(self, time_step):
+    def add(self, time_step, new_obs=None):
         for spec in self._data_specs:
             value = time_step[spec.name]
             if np.isscalar(value):
                 value = np.full(spec.shape, value, spec.dtype)
             assert spec.shape == value.shape and spec.dtype == value.dtype
-            self._current_episode[spec.name].append(value)
+            if new_obs is not None and spec.name == 'observation':
+                self._current_episode[spec.name].append(new_obs)
+            else:
+                self._current_episode[spec.name].append(value)
         if time_step.last():
             episode = dict()
             for spec in self._data_specs:
