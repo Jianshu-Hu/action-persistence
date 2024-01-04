@@ -71,66 +71,66 @@ class Actor(nn.Module):
         return dist
 
 
-class ExActor(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
-        super().__init__()
-
-        self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
-                                   nn.LayerNorm(feature_dim), nn.Tanh())
-
-        self.loaded_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, action_shape[0]))
-        self.trained_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, action_shape[0]))
-        self.copied_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, action_shape[0]))
-
-        self.loaded_actor = Actor(repr_dim, action_shape, feature_dim, hidden_dim)
-
-        self.apply(utils.weight_init)
-
-    def load(self, filename):
-        # load the actor
-        self.loaded_actor.load_state_dict(torch.load(filename + "_actor"))
-        self.trunk.load_state_dict(self.loaded_actor.trunk.state_dict())
-        self.loaded_policy.load_state_dict(self.loaded_actor.policy.state_dict())
-
-        for param in self.loaded_policy.parameters():
-            param.requires_grad = False
-
-        # copy policy
-        self.copied_policy.load_state_dict(self.trained_policy.state_dict())
-
-        for param in self.copied_policy.parameters():
-            param.requires_grad = False
-
-    def forward_mu_std(self, obs, std):
-        h = self.trunk(obs)
-
-        loaded_mu = torch.tanh(self.loaded_policy(h))
-        loaded_std = torch.ones_like(loaded_mu) * std
-
-        trained_mu = torch.tanh(self.trained_policy(h))
-        trained_std = torch.ones_like(trained_mu) * std
-
-        copied_mu = torch.tanh(self.copied_policy(h))
-        copied_std = torch.ones_like(copied_mu) * std
-        return loaded_mu+trained_mu-copied_mu, loaded_std+trained_std-copied_std
-
-    def forward(self, obs, std):
-        final_mu, final_std = self.forward_mu_std(obs, std)
-
-        dist = utils.TruncatedNormal(final_mu, final_std)
-        return dist
+# class ExActor(nn.Module):
+#     def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
+#         super().__init__()
+#
+#         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+#                                    nn.LayerNorm(feature_dim), nn.Tanh())
+#
+#         self.loaded_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+#                                     nn.ReLU(inplace=True),
+#                                     nn.Linear(hidden_dim, hidden_dim),
+#                                     nn.ReLU(inplace=True),
+#                                     nn.Linear(hidden_dim, action_shape[0]))
+#         self.trained_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+#                                     nn.ReLU(inplace=True),
+#                                     nn.Linear(hidden_dim, hidden_dim),
+#                                     nn.ReLU(inplace=True),
+#                                     nn.Linear(hidden_dim, action_shape[0]))
+#         self.copied_policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+#                                     nn.ReLU(inplace=True),
+#                                     nn.Linear(hidden_dim, hidden_dim),
+#                                     nn.ReLU(inplace=True),
+#                                     nn.Linear(hidden_dim, action_shape[0]))
+#
+#         self.loaded_actor = Actor(repr_dim, action_shape, feature_dim, hidden_dim)
+#
+#         self.apply(utils.weight_init)
+#
+#     def load(self, filename):
+#         # load the actor
+#         self.loaded_actor.load_state_dict(torch.load(filename + "_actor"))
+#         self.trunk.load_state_dict(self.loaded_actor.trunk.state_dict())
+#         self.loaded_policy.load_state_dict(self.loaded_actor.policy.state_dict())
+#
+#         for param in self.loaded_policy.parameters():
+#             param.requires_grad = False
+#
+#         # copy policy
+#         self.copied_policy.load_state_dict(self.trained_policy.state_dict())
+#
+#         for param in self.copied_policy.parameters():
+#             param.requires_grad = False
+#
+#     def forward_mu_std(self, obs, std):
+#         h = self.trunk(obs)
+#
+#         loaded_mu = torch.tanh(self.loaded_policy(h))
+#         loaded_std = torch.ones_like(loaded_mu) * std
+#
+#         trained_mu = torch.tanh(self.trained_policy(h))
+#         trained_std = torch.ones_like(trained_mu) * std
+#
+#         copied_mu = torch.tanh(self.copied_policy(h))
+#         copied_std = torch.ones_like(copied_mu) * std
+#         return loaded_mu+trained_mu-copied_mu, loaded_std+trained_std-copied_std
+#
+#     def forward(self, obs, std):
+#         final_mu, final_std = self.forward_mu_std(obs, std)
+#
+#         dist = utils.TruncatedNormal(final_mu, final_std)
+#         return dist
 
 
 class Critic(nn.Module):
@@ -161,80 +161,80 @@ class Critic(nn.Module):
         return q1, q2
 
 
-class ExCritic(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
-        super().__init__()
-
-        self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
-                                   nn.LayerNorm(feature_dim), nn.Tanh())
-
-        self.loaded_Q1 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-
-        self.loaded_Q2 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-
-        self.trained_Q1 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-        self.trained_Q2 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-
-        self.copied_Q1 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-        self.copied_Q2 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-
-        self.loaded_critic = Critic(repr_dim, action_shape, feature_dim, hidden_dim)
-
-        self.apply(utils.weight_init)
-
-    def load(self, filename):
-        # load the critic
-        self.loaded_critic.load_state_dict(torch.load(filename + "_critic"))
-        self.trunk.load_state_dict(self.loaded_critic.trunk.state_dict())
-        self.loaded_Q1.load_state_dict(self.loaded_critic.Q1.state_dict())
-        self.loaded_Q2.load_state_dict(self.loaded_critic.Q2.state_dict())
-
-        for param in self.loaded_Q1.parameters():
-            param.requires_grad = False
-        for param in self.loaded_Q2.parameters():
-            param.requires_grad = False
-
-        # copy critic
-        self.copied_Q1.load_state_dict(self.trained_Q1.state_dict())
-        self.copied_Q2.load_state_dict(self.trained_Q2.state_dict())
-
-        for param in self.copied_Q1.parameters():
-            param.requires_grad = False
-        for param in self.copied_Q2.parameters():
-            param.requires_grad = False
-
-    def forward(self, obs, action):
-        h = self.trunk(obs)
-        h_action = torch.cat([h, action], dim=-1)
-
-        loaded_q1 = self.loaded_Q1(h_action)
-        loaded_q2 = self.loaded_Q2(h_action)
-
-        copied_q1 = self.copied_Q1(h_action)
-        copied_q2 = self.copied_Q2(h_action)
-
-        trained_q1 = self.trained_Q1(h_action)
-        trained_q2 = self.trained_Q2(h_action)
-
-        return loaded_q1+trained_q1-copied_q1, loaded_q2+trained_q2-copied_q2
+# class ExCritic(nn.Module):
+#     def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
+#         super().__init__()
+#
+#         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+#                                    nn.LayerNorm(feature_dim), nn.Tanh())
+#
+#         self.loaded_Q1 = nn.Sequential(
+#             nn.Linear(feature_dim + action_shape[0], hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+#
+#         self.loaded_Q2 = nn.Sequential(
+#             nn.Linear(feature_dim + action_shape[0], hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+#
+#         self.trained_Q1 = nn.Sequential(
+#             nn.Linear(feature_dim + action_shape[0], hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+#         self.trained_Q2 = nn.Sequential(
+#             nn.Linear(feature_dim + action_shape[0], hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+#
+#         self.copied_Q1 = nn.Sequential(
+#             nn.Linear(feature_dim + action_shape[0], hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+#         self.copied_Q2 = nn.Sequential(
+#             nn.Linear(feature_dim + action_shape[0], hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+#             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+#
+#         self.loaded_critic = Critic(repr_dim, action_shape, feature_dim, hidden_dim)
+#
+#         self.apply(utils.weight_init)
+#
+#     def load(self, filename):
+#         # load the critic
+#         self.loaded_critic.load_state_dict(torch.load(filename + "_critic"))
+#         self.trunk.load_state_dict(self.loaded_critic.trunk.state_dict())
+#         self.loaded_Q1.load_state_dict(self.loaded_critic.Q1.state_dict())
+#         self.loaded_Q2.load_state_dict(self.loaded_critic.Q2.state_dict())
+#
+#         for param in self.loaded_Q1.parameters():
+#             param.requires_grad = False
+#         for param in self.loaded_Q2.parameters():
+#             param.requires_grad = False
+#
+#         # copy critic
+#         self.copied_Q1.load_state_dict(self.trained_Q1.state_dict())
+#         self.copied_Q2.load_state_dict(self.trained_Q2.state_dict())
+#
+#         for param in self.copied_Q1.parameters():
+#             param.requires_grad = False
+#         for param in self.copied_Q2.parameters():
+#             param.requires_grad = False
+#
+#     def forward(self, obs, action):
+#         h = self.trunk(obs)
+#         h_action = torch.cat([h, action], dim=-1)
+#
+#         loaded_q1 = self.loaded_Q1(h_action)
+#         loaded_q2 = self.loaded_Q2(h_action)
+#
+#         copied_q1 = self.copied_Q1(h_action)
+#         copied_q2 = self.copied_Q2(h_action)
+#
+#         trained_q1 = self.trained_Q1(h_action)
+#         trained_q2 = self.trained_Q2(h_action)
+#
+#         return loaded_q1+trained_q1-copied_q1, loaded_q2+trained_q2-copied_q2
 
 
 class RewardModel(nn.Module):
@@ -440,22 +440,22 @@ class DrQV2Agent:
         self.test_model = test_model
         self.task_name = task_name
         if load_model != 'none':
-            self.extend_model = False
-            if self.extend_model:
-                self.critic = ExCritic(self.encoder.repr_dim, action_shape, feature_dim,
-                                       hidden_dim).to(device)
-                self.critic_target = ExCritic(self.encoder.repr_dim, action_shape,
-                                              feature_dim, hidden_dim).to(device)
-                # optimizers
-                self.critic_opt = torch.optim.Adam(list(self.critic.trunk.parameters()) +
-                                                   list(self.critic.trained_Q1.parameters()) + list(
-                    self.critic.trained_Q2.parameters()), lr=lr)
-
-                self.actor = ExActor(self.encoder.repr_dim, action_shape, feature_dim,
-                                       hidden_dim).to(device)
-                # optimizers
-                self.actor_opt = torch.optim.Adam(list(self.actor.trunk.parameters()) +
-                                                   list(self.actor.trained_policy.parameters()), lr=lr)
+            # self.extend_model = False
+            # if self.extend_model:
+            #     self.critic = ExCritic(self.encoder.repr_dim, action_shape, feature_dim,
+            #                            hidden_dim).to(device)
+            #     self.critic_target = ExCritic(self.encoder.repr_dim, action_shape,
+            #                                   feature_dim, hidden_dim).to(device)
+            #     # optimizers
+            #     self.critic_opt = torch.optim.Adam(list(self.critic.trunk.parameters()) +
+            #                                        list(self.critic.trained_Q1.parameters()) + list(
+            #         self.critic.trained_Q2.parameters()), lr=lr)
+            #
+            #     self.actor = ExActor(self.encoder.repr_dim, action_shape, feature_dim,
+            #                            hidden_dim).to(device)
+            #     # optimizers
+            #     self.actor_opt = torch.optim.Adam(list(self.actor.trunk.parameters()) +
+            #                                        list(self.actor.trained_policy.parameters()), lr=lr)
 
             self.load(self.work_dir+'/../../../saved_model/' + task_name + '/'+str(self.load_folder)
                       + '/' + 'seed_' + str(seed)+'/' + load_model)
@@ -785,44 +785,44 @@ class DrQV2Agent:
 
         return metrics
 
-    def bc_pretrain(self, replay_iter):
-        pretrain_steps = 20000
-        for step in range(pretrain_steps):
-            batch = next(replay_iter)
-            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index =\
-                utils.to_torch(batch, self.device)
-            # add a behavior cloning loss
-            index_last_obs = t_index + next_K_step_obs.size(1)-1
-            even_index = torch.reshape(1-(index_last_obs % 2), (-1,))
-            even = torch.argwhere(even_index).view(-1)
-            odd = torch.argwhere(1-even_index).view(-1)
-
-            # even index, choose action
-            with torch.no_grad():
-                scale_2_obs = torch.clone(next_K_step_obs[even, -1, :, :, :])
-                scale_2_obs[:, 0:3, :, :] = next_K_step_obs[even, -3, 0:3, :, :]
-                scale_2_obs[:, 3:6, :, :] = next_K_step_obs[even, -1, 0:3, :, :]
-                mu_target, std_target = self.actor_mimic.forward_mu_std(self.encoder_mimic(scale_2_obs), std=0)
-                no_scale_feature = self.encoder(next_K_step_obs[even, -1, :, :, :])
-            mu_no_scale, std_no_scale = self.actor.forward_mu_std(no_scale_feature, std=0)
-            bc_loss = torch.nn.functional.mse_loss(mu_target, mu_no_scale)
-
-            # odd index, repeat
-            with torch.no_grad():
-                mu_repeat, std_repeat = self.actor.forward_mu_std(self.encoder_mimic(
-                    next_K_step_obs[odd, -2, :, :, :]), std=0)
-                to_repeat_feature = self.encoder(next_K_step_obs[odd, -1, :, :, :])
-            mu_to_repeat, std_to_repeat = self.actor.forward_mu_std(to_repeat_feature, std=0)
-            bc_loss += torch.nn.functional.mse_loss(mu_repeat, mu_to_repeat)
-
-            weighted_bc_loss = 1.0 * math.pow(0.9999, step)*bc_loss
-            if step % 1000 == 0:
-                print(weighted_bc_loss)
-            self.actor_opt.zero_grad(set_to_none=True)
-            weighted_bc_loss.backward()
-            self.actor_opt.step()
-
-        self.load_model = 'none'
+    # def bc_pretrain(self, replay_iter):
+    #     pretrain_steps = 20000
+    #     for step in range(pretrain_steps):
+    #         batch = next(replay_iter)
+    #         obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index =\
+    #             utils.to_torch(batch, self.device)
+    #         # add a behavior cloning loss
+    #         index_last_obs = t_index + next_K_step_obs.size(1)-1
+    #         even_index = torch.reshape(1-(index_last_obs % 2), (-1,))
+    #         even = torch.argwhere(even_index).view(-1)
+    #         odd = torch.argwhere(1-even_index).view(-1)
+    #
+    #         # even index, choose action
+    #         with torch.no_grad():
+    #             scale_2_obs = torch.clone(next_K_step_obs[even, -1, :, :, :])
+    #             scale_2_obs[:, 0:3, :, :] = next_K_step_obs[even, -3, 0:3, :, :]
+    #             scale_2_obs[:, 3:6, :, :] = next_K_step_obs[even, -1, 0:3, :, :]
+    #             mu_target, std_target = self.actor_mimic.forward_mu_std(self.encoder_mimic(scale_2_obs), std=0)
+    #             no_scale_feature = self.encoder(next_K_step_obs[even, -1, :, :, :])
+    #         mu_no_scale, std_no_scale = self.actor.forward_mu_std(no_scale_feature, std=0)
+    #         bc_loss = torch.nn.functional.mse_loss(mu_target, mu_no_scale)
+    #
+    #         # odd index, repeat
+    #         with torch.no_grad():
+    #             mu_repeat, std_repeat = self.actor.forward_mu_std(self.encoder_mimic(
+    #                 next_K_step_obs[odd, -2, :, :, :]), std=0)
+    #             to_repeat_feature = self.encoder(next_K_step_obs[odd, -1, :, :, :])
+    #         mu_to_repeat, std_to_repeat = self.actor.forward_mu_std(to_repeat_feature, std=0)
+    #         bc_loss += torch.nn.functional.mse_loss(mu_repeat, mu_to_repeat)
+    #
+    #         weighted_bc_loss = 1.0 * math.pow(0.9999, step)*bc_loss
+    #         if step % 1000 == 0:
+    #             print(weighted_bc_loss)
+    #         self.actor_opt.zero_grad(set_to_none=True)
+    #         weighted_bc_loss.backward()
+    #         self.actor_opt.step()
+    #
+    #     self.load_model = 'none'
 
     def time_reflect_obs(self, obs):
         stacked_num = int(obs.size(1)/3)
@@ -998,19 +998,19 @@ class DrQV2Agent:
             torch.save(self.reward_opt.state_dict(), filename + "_reward_optimizer")
 
     def load(self, filename):
-        if self.extend_model:
-            self.critic.load(filename)
-            self.critic_target.load_state_dict(self.critic.state_dict())
+        # if self.extend_model:
+        #     self.critic.load(filename)
+        #     self.critic_target.load_state_dict(self.critic.state_dict())
+        #
+        #     self.actor.load(filename)
+        # else:
 
-            self.actor.load(filename)
-        else:
-            # pass
-            self.critic.load_state_dict(torch.load(filename + "_critic"))
-            self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
-            self.critic_target.load_state_dict(self.critic.state_dict())
+        self.critic.load_state_dict(torch.load(filename + "_critic"))
+        self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
+        self.critic_target.load_state_dict(self.critic.state_dict())
 
-            self.actor.load_state_dict(torch.load(filename + "_actor"))
-            self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+        self.actor.load_state_dict(torch.load(filename + "_actor"))
+        self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
 
         self.actor_mimic.load_state_dict(torch.load(filename + "_actor"))
         self.encoder_mimic.load_state_dict(torch.load(filename + "_encoder"))

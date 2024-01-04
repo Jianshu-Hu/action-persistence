@@ -119,11 +119,17 @@ folders_1 = ['baseline_action_repeat_2',
              ['baseline_action_repeat_2', 'action_repeat_1_decaying_old'],
              ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_099995'],
              ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_099999'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_obs'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_longer']
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_obs']
              ]
 period = [0, 50, 50, 50, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_1_load_2')
+
+prefix = 'reacher_hard/'
+folders_1 = ['baseline_action_repeat_2',
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_longer']
+             ]
+period = [0, 50]
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_1_load_2_longer')
 
 prefix = 'reacher_hard/'
 folders_1 = ['baseline_action_repeat_2',
@@ -145,22 +151,42 @@ folders_1 = ['baseline_action_repeat_4',
 period = [0, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_scale_load_2_4')
 
+prefix = 'reacher_hard/'
+folders_1 = ['baseline_action_repeat_2', 'action_repeat_2_add_last_action',
+             'action_repeat_2_frame_stack_2_add_last_action',
+             'action_repeat_2_frame_stack_2_add_last_action_process_each_frame']
+period = [0, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_add_last_action')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['baseline_action_repeat_2', 'action_repeat_2_add_last_action',
+             'action_repeat_2_frame_stack_2_add_last_action',
+             'action_repeat_2_frame_stack_2_add_last_action_process_each_frame']
+period = [0, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_add_last_action')
+
 prefix = 'acrobot_swingup/'
 folders_1 = ['drqv2', 'baseline_action_repeat_2',
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_longer']]
-period = [0, 0, 50, 50]
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old']]
+period = [0, 0, 50]
 plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_load')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'baseline_action_repeat_2',
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_decaying_old_longer']]
+period = [0, 0, 50]
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_load_longer')
 
 prefix = 'cheetah_run/'
 folders_1 = ['drqv2', 'baseline',
-             ['baseline', 'baseline_action_repeat_1_load_2'],
+             # ['baseline', 'baseline_action_repeat_1_load_2'],
              ['baseline', 'action_repeat_1_load_2_decaying_old']]
 period = [0, 0, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_load')
 
 prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'baseline', ['baseline', 'baseline_action_repeat_1_load_2'],
+folders_1 = ['drqv2', 'baseline',
+             # ['baseline', 'baseline_action_repeat_1_load_2'],
              ['baseline', 'action_repeat_1_load_2_decaying_old']]
 period = [0, 0, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_load')
