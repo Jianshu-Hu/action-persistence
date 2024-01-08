@@ -26,7 +26,7 @@ seed: 1
 device: cuda
 save_video: false
 save_train_video: false
-use_tb: true
+use_tb: false
 # experiment
 experiment: exp
 # agent
@@ -38,6 +38,8 @@ save_every_frames: 50000
 # load model trained with larger action repeat
 load_model: none
 load_folder: none
+load_num_frames: 50000
+pretrain_steps: 2500
 test_model: false
 
 ##### augmentation
@@ -83,6 +85,7 @@ agent:
   train_dynamics_model: ${train_dynamics_model}
   load_model: ${load_model}
   load_folder: ${load_folder}
+  pretrain_steps: ${pretrain_steps}
   task_name: ${task_name}
   test_model: ${test_model}
   seed: ${seed}

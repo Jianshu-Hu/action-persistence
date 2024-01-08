@@ -173,31 +173,17 @@ class Workspace:
                                        self.cfg.action_repeat)
         seed_until_step = utils.Until(self.cfg.num_seed_frames,
                                       self.cfg.action_repeat)
+        load_until_step = utils.Until(self.cfg.load_num_frames,
+                                      self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
         save_every_step = utils.Every(self.cfg.save_every_frames,
                                       self.cfg.action_repeat)
 
-        # use the loaded policy until evaluation is similar to the old policy
-        if self.cfg.load_model != 'none':
-            prob_use_load = 1.0
-            use_loaded_policy = True
-        else:
-            prob_use_load = 0.0
-            use_loaded_policy = False
-
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
         # record previous steps for getting the action from loaded policy
         three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-        # if use_loaded_policy:
-        #     last_2_obs = three_time_steps[0].observation
-        #     obs = three_time_steps[2].observation
-        #     scaled_obs = np.copy(three_time_steps[2].observation)
-        #     scaled_obs[0:3, :, :] = last_2_obs[0:3, :, :]
-        #     scaled_obs[3:6, :, :] = obs[0:3, :, :]
-        #     self.replay_storage.add(time_step, scaled_obs)
-        # else:
         self.replay_storage.add(time_step)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -223,14 +209,6 @@ class Workspace:
                 # reset env
                 time_step = self.train_env.reset()
                 three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-                # if use_loaded_policy:
-                #     last_2_obs = three_time_steps[0].observation
-                #     obs = three_time_steps[2].observation
-                #     scaled_obs = np.copy(three_time_steps[2].observation)
-                #     scaled_obs[0:3, :, :] = last_2_obs[0:3, :, :]
-                #     scaled_obs[3:6, :, :] = obs[0:3, :, :]
-                #     self.replay_storage.add(time_step, scaled_obs)
-                # else:
                 self.replay_storage.add(time_step)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
@@ -239,22 +217,19 @@ class Workspace:
                 episode_step = 0
                 episode_reward = 0
 
-                if random.random() < prob_use_load*math.pow(0.99995, self.global_step):
-                    use_loaded_policy = True
-                else:
-                    use_loaded_policy = False
+            # train to pretrain the actor-critic
+            if self.cfg.load_model != 'none' and\
+                    (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
+                self.agent.pretrain(self.replay_iter)
 
             # try to evaluate
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
-                if use_loaded_policy and self.global_step == 0:
+                if self.cfg.load_model != 'none' and load_until_step(self.global_step):
                     loaded_policy_reward = self.eval_loaded_policy()
                 else:
                     evaluated_reward = self.eval()
-                    # if use_loaded_policy and evaluated_reward > loaded_policy_reward:
-                    #     use_loaded_policy = False
-
 
             # try to save the model
             if self.cfg.save_model:
@@ -266,12 +241,12 @@ class Workspace:
 
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
-                if use_loaded_policy:
+                if self.cfg.load_model != 'none' and load_until_step(self.global_step):
                     if episode_step % 2 == 0:
                         action = self.agent.loaded_policy_act(three_time_steps[0].observation,
                                                               three_time_steps[1].observation,
                                                               three_time_steps[2].observation,
-                                                              self.global_step, eval_mode=False)
+                                                              self.global_step, eval_mode=True)
                     else:
                         action = last_action
                 else:
@@ -280,18 +255,11 @@ class Workspace:
                                             eval_mode=False)
 
             # try to update the agent
-            if not seed_until_step(self.global_step):
+            if self.cfg.load_model != 'none' and load_until_step(self.global_step):
+                pass
+            elif not seed_until_step(self.global_step):
                 for _ in range(self.cfg.num_updates):
-                    metrics = self.agent.update(self.replay_iter, self.global_step,
-                                                add_bc_loss=False)
-                # if use_loaded_policy:
-                #     # update more when using loaded policy
-                #     for _ in range(4):
-                #         metrics = self.agent.update(self.replay_iter, self.global_step,
-                #                                     add_bc_loss=False)
-                # else:
-                #     metrics = self.agent.update(self.replay_iter, self.global_step,
-                #                                 add_bc_loss=False)
+                    metrics = self.agent.update(self.replay_iter, self.global_step)
                 self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
             # take env step
@@ -300,14 +268,6 @@ class Workspace:
             three_time_steps.pop(0)
             three_time_steps.append(time_step)
             episode_reward += time_step.reward
-            # if use_loaded_policy:
-            #     last_2_obs = three_time_steps[0].observation
-            #     obs = three_time_steps[2].observation
-            #     scaled_obs = np.copy(three_time_steps[2].observation)
-            #     scaled_obs[0:3, :, :] = last_2_obs[0:3, :, :]
-            #     scaled_obs[3:6, :, :] = obs[0:3, :, :]
-            #     self.replay_storage.add(time_step, scaled_obs)
-            # else:
             self.replay_storage.add(time_step)
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
