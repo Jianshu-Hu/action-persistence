@@ -49,6 +49,15 @@ def to_torch(xs, device):
     return tuple(torch.as_tensor(x, device=device) for x in xs)
 
 
+def two_batches_to_torch(batch1, batch2, device):
+    list = []
+    for i in range(len(batch1)):
+        batch1_x = torch.as_tensor(batch1[i], device=device)
+        batch2_x = torch.as_tensor(batch2[i], device=device)
+        list.append(torch.concat([batch1_x, batch2_x], dim=0))
+    return tuple(list)
+
+
 def weight_init(m):
     if isinstance(m, nn.Linear):
         nn.init.orthogonal_(m.weight.data)

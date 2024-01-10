@@ -137,13 +137,13 @@ class Critic(nn.Module):
                                    nn.LayerNorm(feature_dim), nn.Tanh())
 
         self.Q1 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
 
         self.Q2 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
+            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
             nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
 
         self.apply(utils.weight_init)
@@ -873,7 +873,7 @@ class DrQV2Agent:
 
         return metrics
 
-    def update(self, replay_iter, step):
+    def update(self, replay_iter, step, old_replay_iter=None):
         if self.test_model:
             # test the model trained with larger action repeat
             obs, action, reward = next(replay_iter)
@@ -894,9 +894,15 @@ class DrQV2Agent:
         if step % self.update_every_steps != 0:
             return metrics
 
-        batch = next(replay_iter)
-        obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index =\
-            utils.to_torch(batch, self.device)
+        if old_replay_iter is None:
+            batch = next(replay_iter)
+            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index = \
+                utils.to_torch(batch, self.device)
+        else:
+            old_batch = next(old_replay_iter)
+            batch = next(replay_iter)
+            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index = \
+                utils.two_batches_to_torch(batch, old_batch, self.device)
 
         # augment
         obs_all = []
@@ -973,22 +979,22 @@ class DrQV2Agent:
         #     self.actor.load(filename)
         # else:
 
-        self.critic.load_state_dict(torch.load(filename + "_critic"))
-        # self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
-        self.critic_target.load_state_dict(self.critic.state_dict())
-
-        self.actor.load_state_dict(torch.load(filename + "_actor"))
-        # self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
-
         self.actor_mimic.load_state_dict(torch.load(filename + "_actor"))
         self.encoder_mimic.load_state_dict(torch.load(filename + "_encoder"))
 
-        self.encoder.load_state_dict(torch.load(filename + "_encoder"))
-        # self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
-
-        if self.train_dynamics_model != 0:
-            self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
-            # self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
-
-            self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
-            # self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))
+        # self.critic.load_state_dict(torch.load(filename + "_critic"))
+        # # self.critic_opt.load_state_dict(torch.load(filename + "_critic_optimizer"))
+        # self.critic_target.load_state_dict(self.critic.state_dict())
+        #
+        # self.actor.load_state_dict(torch.load(filename + "_actor"))
+        # # self.actor_opt.load_state_dict(torch.load(filename + "_actor_optimizer"))
+        #
+        # self.encoder.load_state_dict(torch.load(filename + "_encoder"))
+        # # self.encoder_opt.load_state_dict(torch.load(filename + "_encoder_optimizer"))
+        #
+        # if self.train_dynamics_model != 0:
+        #     self.dynamics_model.load_state_dict(torch.load(filename + "_dynamics_model"))
+        #     # self.dynamics_opt.load_state_dict(torch.load(filename + "_dynamics_optimizer"))
+        #
+        #     self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
+        #     # self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))

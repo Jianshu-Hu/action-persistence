@@ -67,15 +67,37 @@ class Workspace:
                       specs.Array((1,), np.float32, 'reward'),
                       specs.Array((1,), np.float32, 'discount'))
 
-        self.replay_storage = ReplayBufferStorage(data_specs,
-                                                  self.work_dir / 'buffer')
+        if self.cfg.load_model != 'none':
+            self.replay_storage = ReplayBufferStorage(data_specs,
+                                                      self.work_dir / 'buffer')
 
-        self.replay_loader = make_replay_loader(
-            self.work_dir / 'buffer', self.cfg.replay_buffer_size,
-            self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
-            self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
-            self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
-        self._replay_iter = None
+            self.replay_loader = make_replay_loader(
+                self.work_dir / 'buffer', self.cfg.replay_buffer_size,
+                int(self.cfg.batch_size/2), self.cfg.replay_buffer_num_workers,
+                self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
+                self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
+            self._replay_iter = None
+
+            # create a replay buffer for saving transitions from old policy
+            self.old_replay_storage = ReplayBufferStorage(data_specs,
+                                                      self.work_dir / 'old_buffer')
+
+            self.old_replay_loader = make_replay_loader(
+                self.work_dir / 'old_buffer', self.cfg.load_num_frames,
+                int(self.cfg.batch_size/2), self.cfg.replay_buffer_num_workers,
+                self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
+                self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
+            self._old_replay_iter = None
+        else:
+            self.replay_storage = ReplayBufferStorage(data_specs,
+                                                      self.work_dir / 'buffer')
+
+            self.replay_loader = make_replay_loader(
+                self.work_dir / 'buffer', self.cfg.replay_buffer_size,
+                self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
+                self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
+                self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
+            self._replay_iter = None
 
         self.video_recorder = VideoRecorder(
             self.work_dir if self.cfg.save_video else None)
@@ -100,6 +122,12 @@ class Workspace:
         if self._replay_iter is None:
             self._replay_iter = iter(self.replay_loader)
         return self._replay_iter
+
+    @property
+    def old_replay_iter(self):
+        if self._old_replay_iter is None:
+            self._old_replay_iter = iter(self.old_replay_loader)
+        return self._old_replay_iter
 
     def eval(self):
         step, episode, total_reward = 0, 0, 0
@@ -184,7 +212,10 @@ class Workspace:
         time_step = self.train_env.reset()
         # record previous steps for getting the action from loaded policy
         three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-        self.replay_storage.add(time_step)
+        if self.cfg.load_model != 'none':
+            self.old_replay_storage.add(time_step)
+        else:
+            self.replay_storage.add(time_step)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
         while train_until_step(self.global_step):
@@ -209,7 +240,10 @@ class Workspace:
                 # reset env
                 time_step = self.train_env.reset()
                 three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-                self.replay_storage.add(time_step)
+                if self.cfg.load_model != 'none' and load_until_step(self.global_step):
+                    self.old_replay_storage.add(time_step)
+                else:
+                    self.replay_storage.add(time_step)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
                 if self.cfg.save_snapshot:
@@ -217,10 +251,10 @@ class Workspace:
                 episode_step = 0
                 episode_reward = 0
 
-            # train to pretrain the actor-critic
-            if self.cfg.load_model != 'none' and\
-                    (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
-                self.agent.pretrain(self.replay_iter)
+            # try to pretrain the actor-critic
+            # if self.cfg.load_model != 'none' and\
+            #         (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
+            #     self.agent.pretrain(self.replay_iter)
 
             # try to evaluate
             if eval_every_step(self.global_step):
@@ -255,11 +289,18 @@ class Workspace:
                                             eval_mode=False)
 
             # try to update the agent
-            if self.cfg.load_model != 'none' and load_until_step(self.global_step):
-                pass
+            if self.cfg.load_model != 'none':
+                if load_until_step(self.global_step):
+                    pass
+                elif seed_until_step(self.global_step-(self.cfg.load_num_frames // self.cfg.action_repeat)):
+                    pass
+                else:
+                    for _ in range(self.cfg.num_updates):
+                        metrics = self.agent.update(self.replay_iter, self.global_step, self.old_replay_iter)
+                    self.logger.log_metrics(metrics, self.global_frame, ty='train')
             elif not seed_until_step(self.global_step):
                 for _ in range(self.cfg.num_updates):
-                    metrics = self.agent.update(self.replay_iter, self.global_step)
+                    metrics = self.agent.update(self.replay_iter, self.global_step, None)
                 self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
             # take env step
@@ -268,7 +309,10 @@ class Workspace:
             three_time_steps.pop(0)
             three_time_steps.append(time_step)
             episode_reward += time_step.reward
-            self.replay_storage.add(time_step)
+            if self.cfg.load_model != 'none' and load_until_step(self.global_step):
+                self.old_replay_storage.add(time_step)
+            else:
+                self.replay_storage.add(time_step)
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1
