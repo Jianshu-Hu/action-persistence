@@ -135,26 +135,29 @@ class Critic(nn.Module):
 
         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
+        self.num_Qs = 2
+        self.Q_list = nn.ModuleList()
+        for i in range(self.num_Qs):
+            self.Q_list.append(nn.Sequential(
+                nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
+                nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
+                nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1)))
 
-        self.Q1 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-
-        self.Q2 = nn.Sequential(
-            nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+        # self.Q2 = nn.Sequential(
+        #     nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
+        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
+        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
 
         self.apply(utils.weight_init)
 
     def forward(self, obs, action):
         h = self.trunk(obs)
         h_action = torch.cat([h, action], dim=-1)
-        q1 = self.Q1(h_action)
-        q2 = self.Q2(h_action)
+        q_list = []
+        for i in range(self.num_Qs):
+            q_list.append(self.Q_list[i](h_action))
 
-        return q1, q2
+        return q_list
 
 
 class ExCritic(nn.Module):
@@ -531,8 +534,9 @@ class DrQV2Agent:
                 stddev = utils.schedule(self.stddev_schedule, step)
                 dist = self.actor(next_obs[k], stddev)
                 next_action = dist.sample(clip=self.stddev_clip)
-                target_Q1, target_Q2 = self.critic_target(next_obs[k], next_action)
-                target_V = torch.min(target_Q1, target_Q2)
+                target_Q_list = self.critic_target(next_obs[k], next_action)
+                two_Qs_index = np.random.choice(np.arange(self.critic.num_Qs), size=2, replace=False)
+                target_V = torch.min(target_Q_list[two_Qs_index[0]], target_Q_list[two_Qs_index[1]])
                 target_Q = reward + (discount * target_V)
                 target_all.append(target_Q)
             avg_target_Q = sum(target_all)/self.aug_K
@@ -574,8 +578,10 @@ class DrQV2Agent:
         else:
             critic_loss_all = []
             for k in range(self.aug_K):
-                Q1, Q2 = self.critic(obs[k], action)
-                critic_loss = F.mse_loss(Q1, avg_target_Q) + F.mse_loss(Q2, avg_target_Q)
+                Q_list = self.critic(obs[k], action)
+                critic_loss = 0
+                for i in range(self.critic.num_Qs):
+                    critic_loss += F.mse_loss(Q_list[i], avg_target_Q)
                 critic_loss_all.append(critic_loss)
             avg_critic_loss = sum(critic_loss_all) / self.aug_K
 
@@ -685,8 +691,10 @@ class DrQV2Agent:
         dist = self.actor(obs[0], stddev)
         action = dist.sample(clip=self.stddev_clip)
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
-        Q1, Q2 = self.critic(obs[0], action)
-        Q = torch.min(Q1, Q2)
+        # Q1, Q2 = self.critic(obs[0], action)
+        # Q = torch.min(Q1, Q2)
+        Q_list = self.critic(obs[0], action)
+        Q = sum(Q_list)/len(Q_list)
 
         actor_loss = -Q.mean()
 

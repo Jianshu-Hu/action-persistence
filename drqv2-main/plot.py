@@ -93,10 +93,21 @@ folders_1 = ['baseline_action_repeat_2',
              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_update_4'],
              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_update_8'],
              ['baseline_action_repeat_2', 'action_repeat_1_load_2_1e5_buffer'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_1e5_buffer_update_4']
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_1e5_buffer_update_4'],
              ]
 period = [0, 50, 50, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_buffer')
+
+
+prefix = 'reacher_hard/'
+folders_1 = ['baseline_action_repeat_2',
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer'],
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_3Q'],
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_5Q'],
+             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_5Q_up4']
+             ]
+period = [0, 50, 50, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_buffer_ensemble')
 
 
 # 1.4
