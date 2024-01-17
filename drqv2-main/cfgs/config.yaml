@@ -39,7 +39,7 @@ save_every_frames: 100000
 load_model: none
 load_folder: none
 load_num_frames: 50000
-pretrain_steps: 2500
+pretrain_steps: 5000
 test_model: false
 
 ##### augmentation

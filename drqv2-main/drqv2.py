@@ -143,9 +143,14 @@ class Critic(nn.Module):
                 nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
                 nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1)))
 
+        # self.Q1 = nn.Sequential(
+        #     nn.Linear(feature_dim + action_shape[0], hidden_dim),
+        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
+        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+        #
         # self.Q2 = nn.Sequential(
-        #     nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
-        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
+        #     nn.Linear(feature_dim + action_shape[0], hidden_dim),
+        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
         #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
 
         self.apply(utils.weight_init)
@@ -156,6 +161,8 @@ class Critic(nn.Module):
         q_list = []
         for i in range(self.num_Qs):
             q_list.append(self.Q_list[i](h_action))
+        # q_list.append(self.Q1(h_action))
+        # q_list.append(self.Q2(h_action))
 
         return q_list
 
@@ -441,6 +448,10 @@ class DrQV2Agent:
         self.pretrain_steps = pretrain_steps
         self.test_model = test_model
         self.task_name = task_name
+        # CQL
+        self.num_random = 10
+        self.min_q_weight = 1.0
+        self.temp = 1.0
         if load_model != 'none':
             # self.extend_model = False
             # if self.extend_model:
@@ -506,6 +517,23 @@ class DrQV2Agent:
             action = dist.sample(clip=None)
         return action.cpu().numpy()[0]
 
+    def sample_several_action(self, obs, num_actions, step):
+        obs_temp = obs.unsqueeze(1).repeat(1, num_actions, 1).view(obs.size(0) * num_actions, obs.size(1))
+        stddev = utils.schedule(self.stddev_schedule, step)
+        dist = self.actor(obs_temp, stddev)
+        action = dist.sample(clip=self.stddev_clip)
+        return action
+
+    def cal_several_Q(self, obs, actions):
+        action_shape = actions.size(0)
+        obs_shape = obs.size(0)
+        num_repeat = int(action_shape / obs_shape)
+        obs_temp = obs.unsqueeze(1).repeat(1, num_repeat, 1).view(obs.size(0) * num_repeat, obs.size(1))
+        preds_list = self.critic(obs_temp, actions)
+        preds_1 = preds_list[0].view(obs.size(0), num_repeat, 1)
+        preds_2 = preds_list[1].view(obs.size(0), num_repeat, 1)
+        return preds_1, preds_2
+
     def tangent_vector(self, obs):
         pad = nn.Sequential(torch.nn.ReplicationPad2d(1))
         pad_obs = pad(obs)
@@ -525,7 +553,8 @@ class DrQV2Agent:
         tan_vector = obs_aug - obs
         return tan_vector
 
-    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, next_K_step_obs):
+    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, next_K_step_obs,
+                      episode_return, CQL=False):
         metrics = dict()
 
         target_all = []
@@ -662,6 +691,40 @@ class DrQV2Agent:
         #     if step % 1000 == 0:
         #         print('W: ')
         #         print(self.W)
+        if CQL:
+            ## add CQL
+            random_actions_tensor = torch.FloatTensor(avg_target_Q.size(0) * self.num_random, action.size(-1)).uniform_(
+                -1, 1).to(self.device)
+            curr_actions_tensor = self.sample_several_action(obs[0], self.num_random, step)
+            new_curr_actions_tensor = self.sample_several_action(next_obs[0], self.num_random, step)
+            q1_rand, q2_rand = self.cal_several_Q(obs[0], random_actions_tensor)
+            q1_curr_actions, q2_curr_actions = self.cal_several_Q(obs[0], curr_actions_tensor)
+            q1_next_actions, q2_next_actions = self.cal_several_Q(obs[0], new_curr_actions_tensor)
+
+            # Cal QL
+            """ Cal-QL: prepare for Cal-QL """
+            lower_bounds = episode_return.unsqueeze(1).repeat(1, self.num_random, 1)
+
+            """ Cal-QL: bound Q-values with MC return-to-go """
+            q1_curr_actions = torch.max(q1_curr_actions, lower_bounds)
+            q2_curr_actions = torch.max(q2_curr_actions, lower_bounds)
+            q1_next_actions = torch.max(q1_next_actions, lower_bounds)
+            q2_next_actions = torch.max(q2_next_actions, lower_bounds)
+
+            q_pred_list = self.critic(obs[0], action)
+            cat_q1 = torch.cat(
+                [q1_rand, q_pred_list[0].unsqueeze(1), q1_next_actions, q1_curr_actions], 1
+            )
+            cat_q2 = torch.cat(
+                [q2_rand, q_pred_list[1].unsqueeze(1), q2_next_actions, q2_curr_actions], 1
+            )
+            min_qf1_loss = torch.logsumexp(cat_q1 / self.temp, dim=1, ).mean() * self.temp
+            min_qf2_loss = torch.logsumexp(cat_q2 / self.temp, dim=1, ).mean() * self.temp
+
+            """Subtract the log likelihood of data"""
+            min_qf1_loss = (min_qf1_loss - q_pred_list[0].mean()) * self.min_q_weight
+            min_qf2_loss = (min_qf2_loss - q_pred_list[1].mean()) * self.min_q_weight
+            avg_critic_loss += min_qf1_loss+min_qf2_loss
 
         if self.use_tb:
             metrics['critic_target_q'] = target_Q.mean().item()
@@ -728,11 +791,11 @@ class DrQV2Agent:
         return metrics
 
     def pretrain(self, replay_iter):
-        # train encoder and critic first
+        # train actor and critic with normal ac loss
         for step in range(self.pretrain_steps):
             batch = next(replay_iter)
-            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index = \
-                utils.to_torch(batch, self.device)
+            obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward,\
+            next_K_step_obs, t_index, episode_return = utils.to_torch(batch, self.device)
             # aug
             obs_all = []
             next_obs_all = []
@@ -745,7 +808,8 @@ class DrQV2Agent:
                     next_obs_all.append(self.encoder(next_obs_aug))
 
             # update critic using normal critic loss
-            self.update_critic(obs_all, action, reward, discount, next_obs_all, step, obs.float(), next_K_step_obs)
+            self.update_critic(obs_all, action, reward, discount, next_obs_all, step, obs.float(), next_K_step_obs,
+                               episode_return, CQL=True)
 
             # update dynamics and reward model
             with torch.no_grad():
@@ -753,28 +817,33 @@ class DrQV2Agent:
             if self.train_dynamics_model != 0:
                 self.update_dynamics_reward_model(obs_aug, action, one_step_reward, one_step_next_obs_aug, next_K_step_obs)
 
+            # update actor
+            for k in range(self.aug_K):
+                obs_all[k] = obs_all[k].detach()
+            self.update_actor(obs_all, step)
+
             # update critic target
             utils.soft_update_params(self.critic, self.critic_target, self.critic_target_tau)
 
         # train actor
-        for step in range(self.pretrain_steps):
-            batch = next(replay_iter)
-            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index = \
-                utils.to_torch(batch, self.device)
-            # aug
-            with torch.no_grad():
-                obs_aug = self.aug(obs.float())
-                obs_aug = self.encoder(obs_aug)
-
-            # update actor with a behavior cloning loss
-            mu, std = self.actor.forward_mu_std(obs_aug, std=0)
-            bc_loss = torch.nn.functional.mse_loss(mu, action)
-            weighted_bc_loss = 1.0*bc_loss
-            if step % 1000 == 0:
-                print('pretraining actor step: ' + str(step) + ' loss: ' + str(weighted_bc_loss.item()))
-            self.actor_opt.zero_grad(set_to_none=True)
-            weighted_bc_loss.backward()
-            self.actor_opt.step()
+        # for step in range(self.pretrain_steps):
+        #     batch = next(replay_iter)
+        #     obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward, \
+        #     next_K_step_obs, t_index, episode_return = utils.to_torch(batch, self.device)
+        #     # aug
+        #     with torch.no_grad():
+        #         obs_aug = self.aug(obs.float())
+        #         obs_aug = self.encoder(obs_aug)
+        #
+        #     # update actor with a behavior cloning loss
+        #     mu, std = self.actor.forward_mu_std(obs_aug, std=0)
+        #     bc_loss = torch.nn.functional.mse_loss(mu, action)
+        #     weighted_bc_loss = 1.0*bc_loss
+        #     if step % 500 == 0:
+        #         print('pretraining actor step: ' + str(step) + ' loss: ' + str(weighted_bc_loss.item()))
+        #     self.actor_opt.zero_grad(set_to_none=True)
+        #     weighted_bc_loss.backward()
+        #     self.actor_opt.step()
 
         # # extend the critic
         # old_critic = copy.deepcopy(self.critic)
@@ -904,13 +973,13 @@ class DrQV2Agent:
 
         if old_replay_iter is None:
             batch = next(replay_iter)
-            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index = \
-                utils.to_torch(batch, self.device)
+            obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward,\
+            next_K_step_obs, t_index, episode_return = utils.to_torch(batch, self.device)
         else:
             old_batch = next(old_replay_iter)
             batch = next(replay_iter)
-            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs, t_index = \
-                utils.two_batches_to_torch(batch, old_batch, self.device)
+            obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward,\
+            next_K_step_obs, t_index, episode_return = utils.two_batches_to_torch(batch, old_batch, self.device, step)
 
         # augment
         obs_all = []
@@ -942,7 +1011,7 @@ class DrQV2Agent:
         # update critic
         metrics.update(
             self.update_critic(obs_all, action, reward, discount, next_obs_all, step,
-                               obs.float(), next_K_step_obs))
+                               obs.float(), next_K_step_obs, episode_return))
 
         # update dynamics and reward model
         with torch.no_grad():

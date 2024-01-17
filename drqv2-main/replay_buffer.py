@@ -173,6 +173,13 @@ class ReplayBuffer(IterableDataset):
             reward += discount * step_reward
             discount *= episode['discount'][idx + i] * self._discount
 
+        episode_return = np.zeros_like(episode['reward'][idx])
+        return_discount = np.ones_like(episode['discount'][idx])
+        for i in range(episode_len(episode)-idx):
+            step_reward = episode['reward'][idx + i]
+            episode_return += return_discount * step_reward
+            return_discount *= episode['discount'][idx + i] * self._discount
+
         one_step_next_obs = episode['observation'][idx]
         one_step_reward = episode['reward'][idx]
 
@@ -184,8 +191,8 @@ class ReplayBuffer(IterableDataset):
         next_K_step_obs = np.zeros([num_next_steps, obs.shape[0], obs.shape[1], obs.shape[2]], dtype=obs.dtype)
         for k in range(num_next_steps):
             next_K_step_obs[k, :, :, :] = episode['observation'][idx_temporal_ssl - 1 + k]
-        return (obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_obs,
-                np.array([idx_temporal_ssl-1]))
+        return (obs, action, reward, discount, next_obs, np.array([idx]), one_step_next_obs, one_step_reward, next_K_step_obs,
+                np.array([idx_temporal_ssl-1]), episode_return)
 
     def __iter__(self):
         while True:

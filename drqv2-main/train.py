@@ -85,7 +85,7 @@ class Workspace:
             self.old_replay_loader = make_replay_loader(
                 self.work_dir / 'old_buffer', self.cfg.load_num_frames,
                 int(self.cfg.batch_size/2), self.cfg.replay_buffer_num_workers,
-                self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
+                self.cfg.save_snapshot, 1, self.cfg.discount, self.cfg.test_model,
                 self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
             self._old_replay_iter = None
         else:
@@ -252,9 +252,21 @@ class Workspace:
                 episode_reward = 0
 
             # try to pretrain the actor-critic
+            if self.cfg.load_model != 'none' and\
+                    (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
+                print('start pretrain')
+                self.agent.pretrain(self.old_replay_iter)
+
+            # test pretraining
             # if self.cfg.load_model != 'none' and\
             #         (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
-            #     self.agent.pretrain(self.replay_iter)
+            #     print('start pretrain')
+            #     for i in range(100):
+            #         self.agent.pretrain(self.old_replay_iter)
+            #         evaluated_reward = self.eval()
+            #         print('pretrain iter: ' + str(i))
+            #         print('eval_reward: ' + str(evaluated_reward))
+            #     raise ValueError('test')
 
             # try to evaluate
             if eval_every_step(self.global_step):
@@ -280,7 +292,7 @@ class Workspace:
                         action = self.agent.loaded_policy_act(three_time_steps[0].observation,
                                                               three_time_steps[1].observation,
                                                               three_time_steps[2].observation,
-                                                              self.global_step, eval_mode=True)
+                                                              self.global_step, eval_mode=False)
                     else:
                         action = last_action
                 else:
