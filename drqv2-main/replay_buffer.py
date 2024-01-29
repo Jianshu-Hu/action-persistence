@@ -102,6 +102,9 @@ class ReplayBuffer(IterableDataset):
         self._time_ssl_K = time_ssl_K
         self._dyn_prior_K = dyn_prior_K
 
+    def change_nstep(self, nstep):
+        self._nstep = nstep
+
     def _sample_episode(self):
         eps_fn = random.choice(self._episode_fns)
         return self._episodes[eps_fn]

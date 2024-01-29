@@ -130,12 +130,12 @@ class ExActor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, ensemble):
         super().__init__()
 
         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
-        self.num_Qs = 2
+        self.num_Qs = ensemble
         self.Q_list = nn.ModuleList()
         for i in range(self.num_Qs):
             self.Q_list.append(nn.Sequential(
@@ -359,7 +359,7 @@ class DrQV2Agent:
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
                  load_model, load_folder, pretrain_steps, task_name, test_model, seed,
-                 time_ssl_K, time_ssl_weight, dyn_prior_K, dyn_prior_weight, state_dim):
+                 time_ssl_K, time_ssl_weight, dyn_prior_K, dyn_prior_weight, state_dim, ensemble):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -374,14 +374,15 @@ class DrQV2Agent:
         self.lr = lr
 
         # models
+        self.ensemble = ensemble
         self.encoder = Encoder(obs_shape).to(device)
         self.actor = Actor(self.encoder.repr_dim, action_shape, feature_dim,
                            hidden_dim).to(device)
 
         self.critic = Critic(self.encoder.repr_dim, action_shape, feature_dim,
-                             hidden_dim).to(device)
+                             hidden_dim, self.ensemble).to(device)
         self.critic_target = Critic(self.encoder.repr_dim, action_shape,
-                                    feature_dim, hidden_dim).to(device)
+                                    feature_dim, hidden_dim, self.ensemble).to(device)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
         # optimizers
@@ -1075,3 +1076,11 @@ class DrQV2Agent:
         #
         #     self.reward_model.load_state_dict(torch.load(filename + "_reward_model"))
         #     # self.reward_opt.load_state_dict(torch.load(filename + "_reward_optimizer"))
+
+    def reset(self):
+        self.critic.apply(utils.weight_init)
+        self.critic_target.load_state_dict(self.critic.state_dict())
+        self.actor.apply(utils.weight_init)
+        if self.train_dynamics_model != 0:
+            self.dynamics_model.apply(utils.weight_init)
+            self.reward_model.apply(utils.weight_init)

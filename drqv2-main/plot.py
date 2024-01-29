@@ -78,72 +78,146 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
     else:
         plt.savefig('saved_figs/'+title)
 
-# 1.18
+# 2.1
 prefix = 'reacher_hard/'
-folders_1 = ['baseline_action_repeat_2',
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_half_old'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_decaying_old']
-             ]
-period = [0, 50, 50, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_nstep_1')
-
-prefix = 'reacher_hard/'
-folders_1 = ['baseline_action_repeat_2', 'action_repeat_2_update_4', 'action_repeat_2_ensemble_5_update_10']
-plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_update_more')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'baseline_action_repeat_2',
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_decaying_old'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_decaying_old_update_10'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_calQL'],
-             ['baseline_action_repeat_2', 'action_repeat_1_load_2_calQL_200k_buffer']]
+folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k_nstep6_6']
 period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_buffer')
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_nstep6')
 
 prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'baseline_action_repeat_2', 'action_repeat_2_update_4', 'action_repeat_2_ensemble_5_update_10']
-period = [0, 0, 50]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_update_more')
+folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k_nstep6']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_nstep6')
 
-prefix = 'acrobot_swingup/'
-folders_1 = ['action_repeat_2_ensemble_5_update_10',
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_5e4_buffer_nstep1_decaying_old_q5up10'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_5e4_buffer_nstep1_decaying_old_q5up10'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_2500_bc'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_bc'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_normal'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_cql'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL']
-             ]
-period = [0, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_update_more_transfer')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['action_repeat_2_ensemble_5_update_10',
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_25000_calQL'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_up4'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_noise'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_pretrain_5000_calQL_noise'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_no_decay'],
-             ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_half_up4']
-             ]
-period = [0, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_calql')
-
+prefix = 'cheetah_run/'
+folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k_nstep6_6']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_nstep6')
 
 prefix = 'walker_run/'
-folders_1 = ['baseline_action_repeat_2',
-             'baseline_action_repeat_2_ensemble_5_update_4']
-period = [0, 0]
-plot_several_folders(prefix, folders_1, period=period, title='walker_run_update_more')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['pretrain_test_load', 'pretrain_test_no_load']
+folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k_nstep6_6']
 period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_pretrain_test')
+plot_several_folders(prefix, folders_1, period=period, title='walker_run_nstep6')
+
+prefix = 'hopper_hop/'
+folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k_nstep6_6']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_nstep6')
+
+prefix = 'quadruped_run/'
+folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k_nstep6_6_1e6']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_nstep6')
+
+# 1.25
+# prefix = 'reacher_hard/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k',
+#              'repeat_2_to_1_200k_reset',
+#              'repeat_2_to_1_200k_ensemble_5_reset_up4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_action_repeat_1')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k', 'repeat_2_to_1_400k',
+#              'repeat_2_to_1_200k_ensemble_5_reset_up4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_action_repeat_1')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k',
+#              'repeat_2_to_1_200k_nstep2', 'repeat_4_to_2_200k_nstep4_2']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_action_repeat_4_2')
+#
+# prefix = 'cheetah_run/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k',
+#              'repeat_2_to_1_200k_reset',
+#              'repeat_2_to_1_200k_ensemble_5_reset_up4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_action_repeat_1')
+#
+# prefix = 'walker_run/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k', 'repeat_2_to_1_200k_reset',
+#              'repeat_2_to_1_200k_ensemble_5_reset_up4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_action_repeat_1')
+#
+# prefix = 'hopper_hop/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k', 'repeat_2_to_1_200k_reset']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_action_repeat_1')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['baseline_action_repeat_2', 'baseline_action_repeat_1', 'repeat_2_to_1_200k']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_action_repeat_1')
+
+# 1.18
+# prefix = 'reacher_hard/'
+# folders_1 = ['baseline_action_repeat_2',
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer'],
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1'],
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_half_old'],
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_decaying_old']
+#              ]
+# period = [0, 50, 50, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_nstep_1')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['baseline_action_repeat_2', 'action_repeat_2_update_4', 'action_repeat_2_ensemble_5_update_10']
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_update_more')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'baseline_action_repeat_2',
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_decaying_old'],
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_5e4_buffer_nstep1_decaying_old_update_10'],
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_calQL'],
+#              ['baseline_action_repeat_2', 'action_repeat_1_load_2_calQL_200k_buffer']]
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_buffer')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'baseline_action_repeat_2', 'action_repeat_2_update_4', 'action_repeat_2_ensemble_5_update_10']
+# period = [0, 0, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_update_more')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['action_repeat_2_ensemble_5_update_10',
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_5e4_buffer_nstep1_decaying_old_q5up10'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_5e4_buffer_nstep1_decaying_old_q5up10'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_2500_bc'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_bc'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_normal'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_cql'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL']
+#              ]
+# period = [0, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_update_more_transfer')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['action_repeat_2_ensemble_5_update_10',
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_25000_calQL'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_up4'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_noise'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_pretrain_5000_calQL_noise'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_no_decay'],
+#              ['action_repeat_2_ensemble_5_update_10', 'q5up10_load_pretrain_5000_calQL_half_up4']
+#              ]
+# period = [0, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_calql')
+#
+#
+# prefix = 'walker_run/'
+# folders_1 = ['baseline_action_repeat_2',
+#              'baseline_action_repeat_2_ensemble_5_update_4']
+# period = [0, 0]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_update_more')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['pretrain_test_load', 'pretrain_test_no_load']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_pretrain_test')
 
 
 # 1.11

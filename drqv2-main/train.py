@@ -78,7 +78,7 @@ class Workspace:
                 self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
             self._replay_iter = None
 
-            # create a replay buffer for saving transitions from old policy
+            # create a replay buffer for saving transitions for larger action repeat
             self.old_replay_storage = ReplayBufferStorage(data_specs,
                                                       self.work_dir / 'old_buffer')
 
@@ -88,6 +88,15 @@ class Workspace:
                 self.cfg.save_snapshot, 1, self.cfg.discount, self.cfg.test_model,
                 self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
             self._old_replay_iter = None
+        elif self.cfg.transfer:
+            self.replay_storage = ReplayBufferStorage(data_specs,
+                                                      self.work_dir / 'buffer')
+            self.replay_loader = make_replay_loader(
+                self.work_dir / 'buffer', self.cfg.replay_buffer_size,
+                self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
+                self.cfg.save_snapshot, int(self.cfg.nstep*2), self.cfg.discount, self.cfg.test_model,
+                self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
+            self._replay_iter = None
         else:
             self.replay_storage = ReplayBufferStorage(data_specs,
                                                       self.work_dir / 'buffer')
@@ -157,6 +166,40 @@ class Workspace:
 
         return total_reward / episode
 
+    def eval_large_repeat_policy(self):
+        step, episode, total_reward = 0, 0, 0
+        eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
+
+        while eval_until_episode(episode):
+            episode_step = 0
+            time_step = self.eval_env.reset()
+            self.video_recorder.init(self.eval_env, enabled=(episode == 0))
+            while not time_step.last():
+                with torch.no_grad(), utils.eval_mode(self.agent):
+                    if episode_step % 2 == 0:
+                        action = self.agent.act(time_step.observation,
+                                                self.global_step,
+                                                eval_mode=True)
+                    else:
+                        action = last_action
+                time_step = self.eval_env.step(action)
+                last_action = copy.deepcopy(action)
+                self.video_recorder.record(self.eval_env)
+                total_reward += time_step.reward
+                step += 1
+                episode_step += 1
+
+            episode += 1
+            self.video_recorder.save(f'{self.global_frame}.mp4')
+
+        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
+            log('episode_reward', total_reward / episode)
+            log('episode_length', step * self.cfg.action_repeat / episode)
+            log('episode', self.global_episode)
+            log('step', self.global_step)
+
+        return total_reward / episode
+
     def eval_loaded_policy(self):
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
@@ -206,6 +249,8 @@ class Workspace:
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
         save_every_step = utils.Every(self.cfg.save_every_frames,
+                                      self.cfg.action_repeat)
+        transfer_until_step = utils.Until(self.cfg.transfer_frames,
                                       self.cfg.action_repeat)
 
         episode_step, episode_reward = 0, 0
@@ -268,12 +313,21 @@ class Workspace:
             #         print('eval_reward: ' + str(evaluated_reward))
             #     raise ValueError('test')
 
+            # change the nstep
+            # if self.cfg.transfer and \
+            #         (self.global_step == (self.cfg.transfer_frames // self.cfg.action_repeat)):
+                # self.replay_loader.dataset.change_nstep(self.cfg.nstep)
+                # reset the agent
+                # self.agent.reset()
+
             # try to evaluate
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 if self.cfg.load_model != 'none' and load_until_step(self.global_step):
                     loaded_policy_reward = self.eval_loaded_policy()
+                elif self.cfg.transfer and transfer_until_step(self.global_step):
+                    large_repeat_reward = self.eval_large_repeat_policy()
                 else:
                     evaluated_reward = self.eval()
 
@@ -295,6 +349,14 @@ class Workspace:
                                                               self.global_step, eval_mode=False)
                     else:
                         action = last_action
+                elif self.cfg.transfer:
+                    if transfer_until_step(self.global_step):
+                        if episode_step % 2 == 0:
+                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                        else:
+                            action = last_action
+                    else:
+                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                 else:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,

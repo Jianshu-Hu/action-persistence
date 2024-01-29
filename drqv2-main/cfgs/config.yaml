@@ -32,6 +32,7 @@ experiment: exp
 # agent
 lr: 1e-4
 feature_dim: 50
+ensemble: 2
 # save model
 save_model: false
 save_every_frames: 100000
@@ -41,6 +42,10 @@ load_folder: none
 load_num_frames: 50000
 pretrain_steps: 5000
 test_model: false
+
+# transfer
+transfer: false
+transfer_frames: 500000
 
 ##### augmentation
 # image transformation
@@ -94,6 +99,7 @@ agent:
   dyn_prior_K: ${dyn_prior_K}
   dyn_prior_weight : ${dyn_prior_weight}
   state_dim: ${state_dim}
+  ensemble: ${ensemble}
 
 
 hydra:
