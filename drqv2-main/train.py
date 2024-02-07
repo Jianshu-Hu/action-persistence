@@ -94,9 +94,11 @@ class Workspace:
             self.replay_loader = make_replay_loader(
                 self.work_dir / 'buffer', self.cfg.replay_buffer_size,
                 self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
-                self.cfg.save_snapshot, int(self.cfg.nstep*2), self.cfg.discount, self.cfg.test_model,
+                self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
                 self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
             self._replay_iter = None
+
+            self.hash_count = utils.HashingBonusEvaluator(dim_key=128, obs_processed_flat_dim=self.cfg.feature_dim)
         else:
             self.replay_storage = ReplayBufferStorage(data_specs,
                                                       self.work_dir / 'buffer')
@@ -263,6 +265,7 @@ class Workspace:
             self.replay_storage.add(time_step)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
+        repeat_num = 0
         while train_until_step(self.global_step):
             if time_step.last():
                 self._global_episode += 1
@@ -350,6 +353,53 @@ class Workspace:
                     else:
                         action = last_action
                 elif self.cfg.transfer:
+                    # uniform dist
+                    # if transfer_until_step(self.global_step):
+                    #     prob_repeat = 0.5-self.global_step/(self.cfg.transfer_frames // self.cfg.action_repeat)
+                    # else:
+                    #     prob_repeat = 0
+                    # if self.global_step == 0:
+                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    # else:
+                    #     if np.random.uniform() < prob_repeat:
+                    #         action = last_action
+                    #     else:
+                    #         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+
+                    # zeta dist
+                    # if self.global_step == 0 or repeat_num == 0:
+                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    #     repeat_num = np.random.zipf(2)
+                    #     # if transfer_until_step(self.global_step):
+                    #     #     prob_repeat = 1.0 - self.global_step / (self.cfg.transfer_frames // self.cfg.action_repeat)
+                    #     # else:
+                    #     #     prob_repeat = 0
+                    #     # if np.random.uniform() < prob_repeat:
+                    #     #     repeat_num = np.random.zipf(3)
+                    #     # else:
+                    #     #     repeat_num = 0
+                    # else:
+                    #     action = last_action
+                    #     repeat_num = repeat_num-1
+
+                    # uncertainty
+                    # action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    # if self.global_step != 0:
+                    #     action = self.agent.uncertainty_action(time_step.observation, action, last_action)
+
+                    # hash count
+                    # obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                    # feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
+                    # self.hash_count.fit_before_process_samples(feature)
+                    # if self.global_step == 0:
+                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    # else:
+                    #     repeat_prob = self.hash_count.predict(feature)
+                    #     if np.random.uniform() < repeat_prob:
+                    #         action = last_action
+                    #     else:
+                    #         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+
                     if transfer_until_step(self.global_step):
                         if episode_step % 2 == 0:
                             action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)

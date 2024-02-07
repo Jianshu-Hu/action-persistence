@@ -10,6 +10,7 @@ discount: 0.99
 # train settings
 num_seed_frames: 4000
 num_expl_steps: 2000
+update_every_steps: 2
 num_updates: 1
 # eval
 eval_every_frames: 10000
@@ -76,7 +77,7 @@ agent:
   device: ${device}
   lr: ${lr}
   critic_target_tau: 0.01
-  update_every_steps: 2
+  update_every_steps: ${update_every_steps}
   use_tb: ${use_tb}
   num_expl_steps: ${num_expl_steps}
   hidden_dim: 1024

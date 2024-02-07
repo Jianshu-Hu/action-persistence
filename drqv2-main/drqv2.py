@@ -518,6 +518,23 @@ class DrQV2Agent:
             action = dist.sample(clip=None)
         return action.cpu().numpy()[0]
 
+    def uncertainty_action(self, obs, action, last_action):
+        obs = torch.as_tensor(obs, device=self.device)
+        obs = self.encoder(obs.unsqueeze(0))
+        action_torch = torch.as_tensor(action, device=self.device).unsqueeze(0)
+        last_action_torch = torch.as_tensor(last_action, device=self.device).unsqueeze(0)
+        Q_list = self.critic(obs, action_torch)
+        Q_list_last = self.critic(obs, last_action_torch)
+        Q = torch.cat(Q_list, dim=0)
+        Q_last = torch.cat(Q_list_last, dim=0)
+        var_Q = torch.var(Q)
+        var_Q_last = torch.var(Q_last)
+        if var_Q > var_Q_last:
+            return last_action
+        else:
+            return action
+
+
     def sample_several_action(self, obs, num_actions, step):
         obs_temp = obs.unsqueeze(1).repeat(1, num_actions, 1).view(obs.size(0) * num_actions, obs.size(1))
         stddev = utils.schedule(self.stddev_schedule, step)
