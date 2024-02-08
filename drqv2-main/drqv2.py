@@ -571,8 +571,8 @@ class DrQV2Agent:
         tan_vector = obs_aug - obs
         return tan_vector
 
-    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, next_K_step_obs,
-                      episode_return, CQL=False):
+    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, next_K_step_obs=None,
+                      episode_return=None, CQL=False):
         metrics = dict()
 
         target_all = []
@@ -991,8 +991,9 @@ class DrQV2Agent:
 
         if old_replay_iter is None:
             batch = next(replay_iter)
-            obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward,\
-            next_K_step_obs, t_index, episode_return = utils.to_torch(batch, self.device)
+            obs, action, reward, discount, next_obs = utils.to_torch(batch, self.device)
+            # obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward,\
+            # next_K_step_obs, t_index, episode_return = utils.to_torch(batch, self.device)
         else:
             old_batch = next(old_replay_iter)
             batch = next(replay_iter)
@@ -1011,9 +1012,9 @@ class DrQV2Agent:
                 next_obs_all.append(self.encoder(next_obs_aug))
 
         # next_K_step_obs: [b,K,9,w,h]
-        next_K_step_obs = next_K_step_obs.float()
-        for k in range(next_K_step_obs.size(1)):
-            next_K_step_obs[:, k, :, :, :] = self.aug(next_K_step_obs[:, k, :, :, :])
+        # next_K_step_obs = next_K_step_obs.float()
+        # for k in range(next_K_step_obs.size(1)):
+        #     next_K_step_obs[:, k, :, :, :] = self.aug(next_K_step_obs[:, k, :, :, :])
 
         # # augment
         # obs = self.aug(obs.float())
@@ -1029,11 +1030,11 @@ class DrQV2Agent:
         # update critic
         metrics.update(
             self.update_critic(obs_all, action, reward, discount, next_obs_all, step,
-                               obs.float(), next_K_step_obs, episode_return))
+                               obs.float()))
 
         # update dynamics and reward model
-        with torch.no_grad():
-            one_step_next_obs_aug = self.aug(one_step_next_obs.float())
+        # with torch.no_grad():
+        #     one_step_next_obs_aug = self.aug(one_step_next_obs.float())
         if self.train_dynamics_model != 0:
             metrics.update(self.update_dynamics_reward_model(obs_aug, action, one_step_reward,
                                                              one_step_next_obs_aug, next_K_step_obs))

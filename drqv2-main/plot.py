@@ -96,17 +96,20 @@ period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_unvisit')
 
 prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6', 'drqv2_repeat_2_to_1_200k_nstep6', 'drqv2_repeat_1_nstep6_upevery4']
+folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
+             'drqv2_repeat_2_to_1_500k_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_without_dyn')
 
 prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6', 'drqv2_repeat_2_to_1_200k_nstep6', 'drqv2_repeat_1_nstep6_upevery4']
+folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
+             'drqv2_repeat_2_to_1_500k_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_without_dyn')
 
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6', 'drqv2_repeat_2_to_1_200k_nstep6', 'drqv2_repeat_1_nstep6_upevery4']
+folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
+             'drqv2_repeat_2_to_1_500k_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_without_dyn')
 
