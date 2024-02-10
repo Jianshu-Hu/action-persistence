@@ -103,8 +103,6 @@ class Workspace:
             #     self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
             #     self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
             # self._replay_iter = None
-
-            self.hash_count = utils.HashingBonusEvaluator(dim_key=128, obs_processed_flat_dim=self.cfg.feature_dim)
         else:
             self.replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer,
                                                          data_specs=data_specs)
@@ -325,8 +323,8 @@ class Workspace:
                                 self.global_frame)
                 if self.cfg.load_model != 'none' and load_until_step(self.global_step):
                     loaded_policy_reward = self.eval_loaded_policy()
-                elif self.cfg.transfer and transfer_until_step(self.global_step):
-                    large_repeat_reward = self.eval_large_repeat_policy()
+                # elif self.cfg.transfer and transfer_until_step(self.global_step):
+                #     large_repeat_reward = self.eval_large_repeat_policy()
                 else:
                     evaluated_reward = self.eval()
 
@@ -384,25 +382,24 @@ class Workspace:
                     #     action = self.agent.uncertainty_action(time_step.observation, action, last_action)
 
                     # hash count
-                    # obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                    # feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
-                    # self.hash_count.fit_before_process_samples(feature)
-                    # if self.global_step == 0:
-                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    # else:
-                    #     repeat_prob = self.hash_count.predict(feature)
-                    #     if np.random.uniform() < repeat_prob:
-                    #         action = last_action
-                    #     else:
-                    #         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-
-                    if transfer_until_step(self.global_step):
-                        if episode_step % 2 == 0:
-                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                        else:
-                            action = last_action
-                    else:
+                    obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                    feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
+                    if self.global_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    else:
+                        repeat_prob = self.agent.hash_count.predict(feature)
+                        if np.random.uniform() < repeat_prob:
+                            action = last_action
+                        else:
+                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+
+                    # if transfer_until_step(self.global_step):
+                    #     if episode_step % 2 == 0:
+                    #         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    #     else:
+                    #         action = last_action
+                    # else:
+                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                 else:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,

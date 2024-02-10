@@ -1,12 +1,11 @@
 #!/bin/bash
 
-cd /bigdata/users/jhu/temporal-invariance/drqv2-main/
-source /bigdata/users/jhu/anaconda3/bin/activate
-conda activate equiRL
+cd /bd_targaryen/users/jhu/temporal-invariance/drqv2-main/
+source /bd_targaryen/users/jhu/anaconda3/bin/activate
+conda activate drqv2
 
-tag=walker_run_baseline_repeat_4
+tag=drqv2_batch_unvisit_repeat_nstep6_upevery4
 seed=2
-#std=\'linear\(0.5,0.1,250000\)\'
 
 echo "start running $tag with seed $seed"
-python train.py task=walker_run train_dynamics_model=true action_repeat=4 save_model=true experiment=$tag seed=$seed num_train_frames=3000000
+python train.py task=walker_run transfer=true update_every_steps=4 nstep=6 action_repeat=1 experiment=$tag seed=$seed num_train_frames=1000000

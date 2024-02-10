@@ -4,7 +4,7 @@ cd /bd_targaryen/users/jhu/temporal-invariance/drqv2-main/
 source /bd_targaryen/users/jhu/anaconda3/bin/activate
 conda activate drqv2
 
-tag=drqv2_repeat_2_to_1_nstep6_upevery4
+tag=drqv2_batch_unvisit_repeat_nstep6_upevery4
 seed=2
 
 echo "start running $tag with seed $seed"

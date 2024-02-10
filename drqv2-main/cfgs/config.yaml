@@ -102,6 +102,7 @@ agent:
   dyn_prior_weight : ${dyn_prior_weight}
   state_dim: ${state_dim}
   ensemble: ${ensemble}
+  transfer: ${transfer}
 
 
 hydra:
