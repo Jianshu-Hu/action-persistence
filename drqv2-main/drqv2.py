@@ -137,10 +137,15 @@ class Critic(nn.Module):
                                    nn.LayerNorm(feature_dim), nn.Tanh())
         self.num_Qs = ensemble
         self.Q_list = nn.ModuleList()
+        # for i in range(self.num_Qs):
+        #     self.Q_list.append(nn.Sequential(
+        #         nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
+        #         nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
+        #         nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1)))
         for i in range(self.num_Qs):
             self.Q_list.append(nn.Sequential(
-                nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
-                nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
+                nn.Linear(feature_dim + action_shape[0], hidden_dim),
+                nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
                 nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1)))
 
         # self.Q1 = nn.Sequential(
@@ -374,6 +379,7 @@ class DrQV2Agent:
         self.lr = lr
 
         # models
+        self.obs_shape = obs_shape
         self.ensemble = ensemble
         self.encoder = Encoder(obs_shape).to(device)
         self.actor = Actor(self.encoder.repr_dim, action_shape, feature_dim,
@@ -576,7 +582,7 @@ class DrQV2Agent:
         tan_vector = obs_aug - obs
         return tan_vector
 
-    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, next_K_step_obs=None,
+    def update_critic(self, obs, action, reward, discount, next_obs, step, obs_original, next_K_step_frames,
                       episode_return=None, CQL=False):
         metrics = dict()
 
@@ -679,22 +685,20 @@ class DrQV2Agent:
             temporal_reverse_loss = mse_4
             avg_critic_loss += self.dyn_prior_weight*temporal_reverse_loss
 
-        if self.time_ssl_K > 0:
-            # previous states
-            # s_t = (nt-2n,nt-n,nt)
-            # s_{t-1} = (nt-3n,nt-2n,nt-n)
-            # s_{t-2} = (nt-4n,nt-3n,nt-2n)
-            # ...
-            # s_{t-k} = (nt-(k+2)n,nt-(k+1)n,nt-kn)
+        if self.time_ssl_K > 1:
+            # K_steps frames
+            # [b, frame_stack+2*K, 3, 84, 84]
+            batch_size = next_K_step_frames.size(0)
+            frame_stack = next_K_step_frames.size(1)-2*self.time_ssl_K
             with torch.no_grad():
-                target_obs = torch.clone(next_K_step_obs[:, -1, :, :, :])
+                target_obs = torch.reshape(next_K_step_frames[:, -frame_stack:, :, :, :], (batch_size, *self.obs_shape))
                 target_obs_feature = self.critic.trunk(self.encoder(target_obs))
-            sim_list = torch.zeros([target_obs_feature.size(0), self.time_ssl_K-1]).to(target_obs_feature.device)
+            sim_list = torch.zeros([batch_size, self.time_ssl_K]).to(target_obs_feature.device)
             # calculate the cosine similarities for scaled obs
-            for scale in range(1, self.time_ssl_K):
-                obs_scale = torch.clone(next_K_step_obs[:, -1, :, :, :])
-                obs_scale[:, 0:3, :, :] = next_K_step_obs[:, -(scale*2+1), 0:3, :, :]
-                obs_scale[:, 3:6, :, :] = next_K_step_obs[:, -scale, 0:3, :, :]
+            for scale in range(1, self.time_ssl_K+1):
+                obs_scale = torch.clone(target_obs)
+                obs_scale[:, 0:3, :, :] = next_K_step_frames[:, -3-scale*2, :, :, :]
+                obs_scale[:, 3:6, :, :] = next_K_step_frames[:, -2-scale, :, :, :]
                 pert_obs_feature = self.critic.trunk(self.encoder(obs_scale))
                 sim = self.cos_sim(pert_obs_feature, target_obs_feature)
                 sim_list[:, scale-1] = torch.exp(sim*self.W)
@@ -755,8 +759,8 @@ class DrQV2Agent:
             metrics['critic_q2'] = Q2.mean().item()
             metrics['critic_loss'] = avg_critic_loss.item()
 
-            # if self.time_ssl_K > 0:
-            #     metrics['ss_loss'] = ssloss.item()
+            if self.time_ssl_K > 1:
+                metrics['ss_loss'] = ssloss.item()
             if self.dyn_prior_K > 0:
                 metrics['dyn_prior_loss'] = dyn_prior_loss.item()
                 metrics['temporal_reverse_loss'] = temporal_reverse_loss.item()
@@ -780,7 +784,7 @@ class DrQV2Agent:
         # Q1, Q2 = self.critic(obs[0], action)
         # Q = torch.min(Q1, Q2)
         Q_list = self.critic(obs[0], action)
-        Q = sum(Q_list)/len(Q_list)
+        Q = torch.min(torch.stack(Q_list), dim=0)[0]
 
         actor_loss = -Q.mean()
 
@@ -807,9 +811,6 @@ class DrQV2Agent:
             metrics['actor_ent'] = dist.entropy().sum(dim=-1).mean().item()
             if self.add_KL_loss:
                 metrics['actor_KL_loss'] = KL.item()
-
-            # if self.time_ssl_K > 0:
-            #     metrics['ss_loss'] = ssloss.item()
 
         return metrics
 
@@ -899,7 +900,7 @@ class DrQV2Agent:
             reflected_obs[:, 3 * i:3 * (i + 1), :, :] = obs[:, obs.size(1)-3 * (i + 1):obs.size(1)-3 * i, :, :]
         return reflected_obs
 
-    def update_dynamics_reward_model(self, obs, action, reward, next_obs, next_K_obs):
+    def update_dynamics_reward_model(self, obs, action, reward, next_obs, next_K_obs=None):
         metrics = dict()
         if self.train_dynamics_model == 1:
             predicted_next_obs_feature = self.dynamics_model(self.encoder(obs), action)
@@ -996,9 +997,8 @@ class DrQV2Agent:
 
         if old_replay_iter is None:
             batch = next(replay_iter)
-            obs, action, reward, discount, next_obs = utils.to_torch(batch, self.device)
-            # obs, action, reward, discount, next_obs, index, one_step_next_obs, one_step_reward,\
-            # next_K_step_obs, t_index, episode_return = utils.to_torch(batch, self.device)
+            obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward, next_K_step_frames =\
+                utils.to_torch(batch, self.device)
         else:
             old_batch = next(old_replay_iter)
             batch = next(replay_iter)
@@ -1040,14 +1040,14 @@ class DrQV2Agent:
         # update critic
         metrics.update(
             self.update_critic(obs_all, action, reward, discount, next_obs_all, step,
-                               obs.float()))
+                               obs.float(), next_K_step_frames.float()))
 
         # update dynamics and reward model
-        # with torch.no_grad():
-        #     one_step_next_obs_aug = self.aug(one_step_next_obs.float())
+        with torch.no_grad():
+            one_step_next_obs_aug = self.aug(one_step_next_obs.float())
         if self.train_dynamics_model != 0:
             metrics.update(self.update_dynamics_reward_model(obs_aug, action, one_step_reward,
-                                                             one_step_next_obs_aug, next_K_step_obs))
+                                                             one_step_next_obs_aug))
 
         # update actor
         for k in range(self.aug_K):

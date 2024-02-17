@@ -4,6 +4,7 @@ from replay_buffer import AbstractReplayBuffer
 
 class EfficientReplayBuffer(AbstractReplayBuffer):
     def __init__(self, buffer_size, batch_size, nstep, discount, frame_stack,
+                 time_ssl_K,
                  data_specs=None):
         self.buffer_size = buffer_size
         self.data_dict = {}
@@ -19,6 +20,8 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         # than the end of each episode or the last recorded observation
         self.discount_vec = np.power(discount, np.arange(nstep)).astype('float32')
         self.next_dis = discount**nstep
+
+        self.time_ssl_K = time_ssl_K
 
     def _initial_setup(self, time_step):
         self.index = 0
@@ -101,7 +104,23 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         act = self.act[indices]
         dis = np.expand_dims(self.next_dis * self.dis[nobs_gather_ranges[:, -1]], axis=-1)
 
-        ret = (obs, act, rew, dis, nobs)
+        # one step obs
+        one_step_next_obs_gather_ranges = all_gather_ranges[:, 1:self.frame_stack+1]
+        one_step_next_obs = np.reshape(self.obs[one_step_next_obs_gather_ranges], [n_samples, *self.obs_shape])
+        # one step reward
+        one_step_next_reward = self.rew[indices]
+
+        # next K steps obs
+        if self.time_ssl_K > 1:
+            all_gather_ranges_K_steps = np.stack([np.arange(indices[i] - self.frame_stack,
+                                                            indices[i] + 2*self.time_ssl_K)
+                                          for i in range(n_samples)], axis=0) % self.buffer_size
+            # bs x (2*K_steps+frame_stack)
+            next_K_step_frames = self.obs[all_gather_ranges_K_steps]
+        else:
+            next_K_step_frames = np.zeros(1)
+
+        ret = (obs, act, rew, dis, nobs, one_step_next_obs, one_step_next_reward, next_K_step_frames)
         return ret
 
     def __len__(self):

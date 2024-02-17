@@ -5,3 +5,4 @@ replay_buffer:
   nstep: ${nstep}
   discount: ${discount}
   frame_stack: ${frame_stack}
+  time_ssl_K : ${time_ssl_K}

@@ -54,9 +54,10 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
             num_runs = len(os.listdir(folder_name))
             mean_all, std_all, eval_freq = average_over_several_runs(folder_name)
 
-            if len(mean_all) > 100:
-                mean_all = mean_all[:100]
-                std_all = std_all[:100]
+            if prefix not in ['humanoid_stand/', 'humanoid_walk/', 'humanoid_run/']:
+                if len(mean_all) > 100:
+                    mean_all = mean_all[:100]
+                    std_all = std_all[:100]
 
             # plot variance
             axs.fill_between(eval_freq * range(len(mean_all)),
@@ -83,21 +84,21 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
 prefix = 'quadruped_run/'
 folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
              'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
-             'drqv2_unvisit_repeat_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+             'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_without_dyn')
 
 prefix = 'acrobot_swingup/'
 folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
              'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
-             'drqv2_unvisit_repeat_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+             'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_without_dyn')
 
 prefix = 'reacher_hard/'
 folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
              'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
-             'drqv2_unvisit_repeat_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+             'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_without_dyn')
 
@@ -125,6 +126,42 @@ prefix = 'finger_turn_hard/'
 folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
 period = [0, 0, 50, 50, 50, 50]
 plot_several_folders(prefix, folders_1, period=period, title='finger_turn_hard_without_dyn')
+
+prefix = 'humanoid_stand/'
+folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='humanoid_stand_without_dyn')
+
+prefix = 'humanoid_walk/'
+folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='humanoid_walk_without_dyn')
+
+prefix = 'humanoid_run/'
+folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+period = [0, 0, 50, 50, 50, 50]
+plot_several_folders(prefix, folders_1, period=period, title='humanoid_run_without_dyn')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
+plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_time_ssl')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_time_ssl')
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_time_ssl')
 
 
 # 2.8
