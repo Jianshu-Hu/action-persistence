@@ -80,88 +80,160 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
         plt.savefig('saved_figs/'+title)
 
 
+# 2.29
+
+# 2.23
+# period = [0, 0, 50, 50, 50, 50]
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_223pre')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_223pre')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_223pre')
+#
+# prefix = 'cheetah_run/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_223pre')
+#
+# prefix = 'hopper_hop/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_223pre')
+#
+# prefix = 'walker_run/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_223pre')
+#
+# prefix = 'finger_spin/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='finger_spin_223pre')
+#
+# prefix = 'finger_turn_hard/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='finger_turn_hard_223pre')
+#
+# prefix = 'humanoid_stand/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='humanoid_stand_223pre')
+#
+# prefix = 'humanoid_walk/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='humanoid_walk_223pre')
+#
+# prefix = 'humanoid_run/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='humanoid_run_223pre')
+
 # 2.22
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
-             'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
-             'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_without_dyn')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
-             'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
-             'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_without_dyn')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
-             'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
-             'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_without_dyn')
-
-prefix = 'cheetah_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_without_dyn')
-
-prefix = 'hopper_hop/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_without_dyn')
-
-prefix = 'walker_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='walker_run_without_dyn')
-
-prefix = 'finger_spin/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='finger_spin_without_dyn')
-
-prefix = 'finger_turn_hard/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='finger_turn_hard_without_dyn')
-
-prefix = 'humanoid_stand/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='humanoid_stand_without_dyn')
-
-prefix = 'humanoid_walk/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='humanoid_walk_without_dyn')
-
-prefix = 'humanoid_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-period = [0, 0, 50, 50, 50, 50]
-plot_several_folders(prefix, folders_1, period=period, title='humanoid_run_without_dyn')
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
-plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_time_ssl')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
-plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_time_ssl')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
-             'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
-plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_time_ssl')
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
+#              'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
+#              'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_without_dyn')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
+#              'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
+#              'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_without_dyn')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4',
+#              'drqv2_repeat_2_to_1_500k_nstep6_upevery4',
+#              'drqv2_unvisit_repeat_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_without_dyn')
+#
+# prefix = 'cheetah_run/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='cheetah_run_without_dyn')
+#
+# prefix = 'hopper_hop/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='hopper_hop_without_dyn')
+#
+# prefix = 'walker_run/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='walker_run_without_dyn')
+#
+# prefix = 'finger_spin/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='finger_spin_without_dyn')
+#
+# prefix = 'finger_turn_hard/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4','drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='finger_turn_hard_without_dyn')
+#
+# prefix = 'humanoid_stand/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='humanoid_stand_without_dyn')
+#
+# prefix = 'humanoid_walk/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='humanoid_walk_without_dyn')
+#
+# prefix = 'humanoid_run/'
+# folders_1 = ['drqv2', 'drqv2_repeat_1_nstep6_upevery4', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# period = [0, 0, 50, 50, 50, 50]
+# plot_several_folders(prefix, folders_1, period=period, title='humanoid_run_without_dyn')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_time_ssl')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_time_ssl')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_3_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_timessl_4_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_time_ssl')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_proj_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_mlp_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_mlp_encoder_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_c2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_trainable_hash')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_proj_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_mlp_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_mlp_encoder_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_c2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_trainable_hash')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_proj_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_mlp_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_trainable_mlp_encoder_batch_unvisit_repeat_nstep6_upevery4',
+#              'drqv2_c2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_trainable_hash')
 
 
 # 2.8

@@ -364,7 +364,7 @@ class DrQV2Agent:
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, add_KL_loss, tangent_prop, train_dynamics_model,
                  load_model, load_folder, pretrain_steps, task_name, test_model, seed,
-                 time_ssl_K, time_ssl_weight, dyn_prior_K, dyn_prior_weight, state_dim, ensemble, transfer):
+                 time_ssl_K, time_ssl_weight, dyn_prior_K, dyn_prior_weight, state_dim, ensemble, repeat_type):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -448,10 +448,14 @@ class DrQV2Agent:
         self.dyn_prior_weight = dyn_prior_weight
         self.state_dim = state_dim
 
-        # transfer
-        self.transfer = transfer
-        if transfer:
-            self.hash_count = utils.HashingBonusEvaluator(dim_key=128, obs_processed_flat_dim=feature_dim)
+        # repeat
+        self.repeat_type = repeat_type
+        if repeat_type == 1:
+            self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
+                                                          obs_processed_flat_dim=feature_dim)
+        elif repeat_type == 2:
+            self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
+                                                          obs_processed_flat_dim=feature_dim + action_shape[0])
 
         # load model
         self.work_dir = work_dir
@@ -1006,10 +1010,16 @@ class DrQV2Agent:
             next_K_step_obs, t_index, episode_return = utils.two_batches_to_torch(batch, old_batch, self.device, step)
 
         # update hash count
-        if self.transfer:
+        if self.repeat_type == 1:
             with torch.no_grad():
                 feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
                 self.hash_count.fit_before_process_samples(feature)
+        elif self.repeat_type == 2:
+            with torch.no_grad():
+                feature = self.critic.trunk(self.encoder(obs.float()))
+                state_action_feature = torch.cat((feature, action), 1)
+                self.hash_count.fit_before_process_samples(state_action_feature.cpu().numpy())
+
         # augment
         obs_all = []
         next_obs_all = []

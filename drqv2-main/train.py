@@ -92,17 +92,6 @@ class Workspace:
             #     self.cfg.save_snapshot, 1, self.cfg.discount, self.cfg.test_model,
             #     self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
             # self._old_replay_iter = None
-        elif self.cfg.transfer:
-            self.replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer,
-                                                         data_specs=data_specs)
-            # self.replay_storage = ReplayBufferStorage(data_specs,
-            #                                           self.work_dir / 'buffer')
-            # self.replay_loader = make_replay_loader(
-            #     self.work_dir / 'buffer', self.cfg.replay_buffer_size,
-            #     self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
-            #     self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
-            #     self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
-            # self._replay_iter = None
         else:
             self.replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer,
                                                          data_specs=data_specs)
@@ -246,8 +235,6 @@ class Workspace:
                                       self.cfg.action_repeat)
         save_every_step = utils.Every(self.cfg.save_every_frames,
                                       self.cfg.action_repeat)
-        transfer_until_step = utils.Until(self.cfg.transfer_frames,
-                                      self.cfg.action_repeat)
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
@@ -310,21 +297,12 @@ class Workspace:
             #         print('eval_reward: ' + str(evaluated_reward))
             #     raise ValueError('test')
 
-            # change the nstep
-            # if self.cfg.transfer and \
-            #         (self.global_step == (self.cfg.transfer_frames // self.cfg.action_repeat)):
-                # self.replay_loader.dataset.change_nstep(self.cfg.nstep)
-                # reset the agent
-                # self.agent.reset()
-
             # try to evaluate
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 if self.cfg.load_model != 'none' and load_until_step(self.global_step):
                     loaded_policy_reward = self.eval_loaded_policy()
-                # elif self.cfg.transfer and transfer_until_step(self.global_step):
-                #     large_repeat_reward = self.eval_large_repeat_policy()
                 else:
                     evaluated_reward = self.eval()
 
@@ -346,42 +324,13 @@ class Workspace:
                                                               self.global_step, eval_mode=False)
                     else:
                         action = last_action
-                elif self.cfg.transfer:
-                    # uniform dist
-                    # if transfer_until_step(self.global_step):
-                    #     prob_repeat = 0.5-self.global_step/(self.cfg.transfer_frames // self.cfg.action_repeat)
-                    # else:
-                    #     prob_repeat = 0
-                    # if self.global_step == 0:
-                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    # else:
-                    #     if np.random.uniform() < prob_repeat:
-                    #         action = last_action
-                    #     else:
-                    #         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-
-                    # zeta dist
-                    # if self.global_step == 0 or repeat_num == 0:
-                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    #     repeat_num = np.random.zipf(2)
-                    #     # if transfer_until_step(self.global_step):
-                    #     #     prob_repeat = 1.0 - self.global_step / (self.cfg.transfer_frames // self.cfg.action_repeat)
-                    #     # else:
-                    #     #     prob_repeat = 0
-                    #     # if np.random.uniform() < prob_repeat:
-                    #     #     repeat_num = np.random.zipf(3)
-                    #     # else:
-                    #     #     repeat_num = 0
-                    # else:
-                    #     action = last_action
-                    #     repeat_num = repeat_num-1
-
+                elif self.cfg.repeat_type == 1:
                     # uncertainty
                     # action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     # if self.global_step != 0:
                     #     action = self.agent.uncertainty_action(time_step.observation, action, last_action)
 
-                    # hash count
+                    # hash count (state)
                     obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
                     feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
                     if self.global_step == 0:
@@ -392,14 +341,17 @@ class Workspace:
                             action = last_action
                         else:
                             action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-
-                    # if transfer_until_step(self.global_step):
-                    #     if episode_step % 2 == 0:
-                    #         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    #     else:
-                    #         action = last_action
-                    # else:
-                    #     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                elif self.cfg.repeat_type == 2:
+                    # hash count (state-action)
+                    action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                    feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
+                    state_action_feature = np.concatenate((feature, np.expand_dims(action, axis=0)), axis=1)
+                    repeat_prob = self.agent.hash_count.predict(state_action_feature)
+                    if self.global_step == 0:
+                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    elif np.random.uniform() < repeat_prob:
+                        action = last_action
                 else:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,
