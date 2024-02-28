@@ -81,6 +81,25 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
 
 
 # 2.29
+period = [0, 0, 50, 50, 50, 50]
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4', 'drqv2_state_action_batch_unvisit']
+plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_more_count')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4', 'drqv2_state_action_batch_unvisit']
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_more_count')
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2', 'drqv2_batch_unvisit_repeat_nstep6_upevery4', 'drqv2_state_action_batch_unvisit']
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_more_count')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_rnd_initial_10_loss_norm_obs', 'drqv2_rnd_initial_20_loss_norm_obs',
+             'drqv2_rnd_initial_20_loss_norm_obs_lr01', 'drqv2_rnd_initial_20_loss_norm_obs_lr001',
+             'drqv2_rnd_initial_20_loss_norm_obs_lr01_add_two_layer_predictor']
+plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_rnd')
 
 # 2.23
 # period = [0, 0, 50, 50, 50, 50]

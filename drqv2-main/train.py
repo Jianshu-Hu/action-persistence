@@ -246,7 +246,7 @@ class Workspace:
             self.replay_buffer.add(time_step)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
-        repeat_num = 0
+        repeat_prob_record_list = []
         while train_until_step(self.global_step):
             if time_step.last():
                 self._global_episode += 1
@@ -341,6 +341,9 @@ class Workspace:
                             action = last_action
                         else:
                             action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                        repeat_prob_record_list.append(repeat_prob)
+                        if self.global_step % 5000 == 0:
+                            np.savez(str(self.work_dir) + '/repeat_prob.npz', repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.repeat_type == 2:
                     # hash count (state-action)
                     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
@@ -352,6 +355,24 @@ class Workspace:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     elif np.random.uniform() < repeat_prob:
                         action = last_action
+                elif self.cfg.repeat_type == 3:
+                    # RND
+                    if len(self.agent.initial_loss_list) < self.agent.initial_loss_max:
+                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    else:
+                        with torch.no_grad():
+                            obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                            predict_feature, target_feature = self.agent.rnd(obs_torch.float())
+                            loss = torch.nn.functional.mse_loss(predict_feature, target_feature)
+                            repeat_prob = loss.item()/\
+                                          (sum(self.agent.initial_loss_list)/len(self.agent.initial_loss_list))
+                            repeat_prob_record_list.append(repeat_prob)
+                        if np.random.uniform() < repeat_prob:
+                            action = last_action
+                        else:
+                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                        if self.global_step % 5000 == 0:
+                            np.savez(str(self.work_dir) + '/repeat_prob.npz', repeat_prob=np.array(repeat_prob_record_list))
                 else:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,

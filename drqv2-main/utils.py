@@ -227,3 +227,87 @@ class HashingBonusEvaluator(object):
     def predict(self, obs):
         counts = self.query_hash(obs)
         return 1. / np.maximum(1., np.sqrt(counts))
+
+
+class RNDModel(nn.Module):
+    def __init__(self, obs_shape, feature_dim):
+        super().__init__()
+
+        assert len(obs_shape) == 3
+        self.repr_dim = 32 * 35 * 35
+
+        self.running_stats = RunningMeanStd(shape=obs_shape)
+
+        self.predictor_encoder = nn.Sequential(nn.Conv2d(obs_shape[0], 32, 3, stride=2),
+                                     nn.ReLU(), nn.Conv2d(32, 32, 3, stride=1),
+                                     nn.ReLU(), nn.Conv2d(32, 32, 3, stride=1),
+                                     nn.ReLU(), nn.Conv2d(32, 32, 3, stride=1),
+                                     nn.ReLU())
+        self.predictor_trunk = nn.Sequential(nn.Linear(self.repr_dim, feature_dim),
+                                   nn.LayerNorm(feature_dim), nn.Tanh())
+
+        self.target_encoder = nn.Sequential(nn.Conv2d(obs_shape[0], 32, 3, stride=2),
+                                     nn.ReLU(), nn.Conv2d(32, 32, 3, stride=1),
+                                     nn.ReLU(), nn.Conv2d(32, 32, 3, stride=1),
+                                     nn.ReLU(), nn.Conv2d(32, 32, 3, stride=1),
+                                     nn.ReLU())
+        self.target_trunk = nn.Sequential(nn.Linear(self.repr_dim, feature_dim),
+                                   nn.LayerNorm(feature_dim), nn.Tanh())
+
+        # Set target parameters as untrainable
+        for param in self.target_encoder.parameters():
+            param.requires_grad = False
+        for param in self.target_trunk.parameters():
+            param.requires_grad = False
+
+        self.apply(weight_init)
+
+    def update_running_stats(self, obs):
+        obs = obs / 255.0 - 0.5
+        self.running_stats.update(obs.detach().cpu().numpy())
+
+    def forward(self, obs):
+        # normalize
+        obs = obs / 255.0 - 0.5
+        obs = (obs-torch.from_numpy(self.running_stats.mean).to(obs.device))/\
+              torch.from_numpy(self.running_stats.var).to(obs.device)
+
+        h_pred = self.predictor_encoder(obs)
+        h_pred = h_pred.view(h_pred.shape[0], -1)
+        predict_feature = self.predictor_trunk(h_pred)
+        with torch.no_grad():
+            h_targ = self.target_encoder(obs)
+            h_targ = h_targ.view(h_targ.shape[0], -1)
+            target_feature = self.target_trunk(h_targ)
+
+        return predict_feature, target_feature
+
+
+class RunningMeanStd(object):
+    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+    def __init__(self, epsilon=1e-4, shape=()):
+        self.mean = np.zeros(shape, 'float32')
+        self.var = np.ones(shape, 'float32')
+        self.count = epsilon
+
+    def update(self, x):
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * (self.count)
+        m_b = batch_var * (batch_count)
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        new_count = batch_count + self.count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
