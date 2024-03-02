@@ -101,6 +101,27 @@ folders_1 = ['drqv2_batch_unvisit_repeat_nstep6_upevery4',
              'drqv2_rnd_initial_20_loss_norm_obs_lr01_add_two_layer_predictor']
 plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_rnd')
 
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_rnd_initial_20_loss_norm_obs_lr01']
+plot_several_folders(prefix, folders_1, period=period, title='acrobot_swingup_rnd')
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_rnd_initial_20_loss_norm_obs_lr01']
+plot_several_folders(prefix, folders_1, period=period, title='reacher_hard_rnd')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_ensemble_5_c1', 'drqv2_ensemble_5_c5', 'drqv2_ensemble_5_c25']
+plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_uncertainty')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_batch_unvisit_repeat_nstep6_upevery4',
+             'drqv2_uniform_01_sample_10_c01', 'drqv2_uniform_02_sample_10_c01']
+plot_several_folders(prefix, folders_1, period=period, title='quadruped_run_sample_uncertainty')
+
+
 # 2.23
 # period = [0, 0, 50, 50, 50, 50]
 # prefix = 'quadruped_run/'
