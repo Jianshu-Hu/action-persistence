@@ -38,36 +38,24 @@ ensemble: 2
 # save model
 save_model: false
 save_every_frames: 100000
-# load model trained with larger action repeat
-load_model: none
-load_folder: none
-load_num_frames: 50000
-pretrain_steps: 5000
+## load model trained with larger action repeat
+#load_model: none
+#load_folder: none
+#load_num_frames: 50000
+#pretrain_steps: 5000
 test_model: false
 
 # repeat
 repeat_type: 0
-#transfer_frames: 500000
 
 ##### augmentation
 # image transformation
 aug_K: 1
 # data augmentation type
 aug_type: 1
-# KL regularization in actor training
-add_KL_loss: false
-# tangent prop
-tangent_prop: false
 
 # dynamics model
 train_dynamics_model: 0
-# temporal ssl
-time_ssl_K: 0
-time_ssl_weight: 0.1
-# dynamics prior
-dyn_prior_K: 0
-dyn_prior_weight: 0.1
-state_dim: 0
 
 
 agent:
@@ -87,20 +75,10 @@ agent:
   stddev_clip: 0.3
   aug_K: ${aug_K}
   aug_type: ${aug_type}
-  add_KL_loss: ${add_KL_loss}
-  tangent_prop: ${tangent_prop}
   train_dynamics_model: ${train_dynamics_model}
-  load_model: ${load_model}
-  load_folder: ${load_folder}
-  pretrain_steps: ${pretrain_steps}
   task_name: ${task_name}
   test_model: ${test_model}
   seed: ${seed}
-  time_ssl_K : ${time_ssl_K}
-  time_ssl_weight : ${time_ssl_weight}
-  dyn_prior_K: ${dyn_prior_K}
-  dyn_prior_weight : ${dyn_prior_weight}
-  state_dim: ${state_dim}
   ensemble: ${ensemble}
   repeat_type: ${repeat_type}
 

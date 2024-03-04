@@ -224,7 +224,7 @@ def _worker_init_fn(worker_id):
 
 
 def make_replay_loader(replay_dir, max_size, batch_size, num_workers,
-                       save_snapshot, nstep, discount, test_model, time_ssl_K, dyn_prior_K):
+                       save_snapshot, nstep, discount):
     max_size_per_worker = max_size // max(1, num_workers)
 
     iterable = IterableReplayBuffer(replay_dir,

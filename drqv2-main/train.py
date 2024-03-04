@@ -67,48 +67,10 @@ class Workspace:
                       specs.Array((1,), np.float32, 'reward'),
                       specs.Array((1,), np.float32, 'discount'))
 
-        if self.cfg.load_model != 'none':
-            self.replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer,
-                                                         data_specs=data_specs)
-            # create a replay buffer for saving transitions for larger action repeat
-            # TODO: set the config for this old reolay buffer
-            self.old_replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer,
-                                                         data_specs=data_specs)
-            # self.replay_storage = ReplayBufferStorage(data_specs,
-            #                                           self.work_dir / 'buffer')
-            #
-            # self.replay_loader = make_replay_loader(
-            #     self.work_dir / 'buffer', self.cfg.replay_buffer_size,
-            #     int(self.cfg.batch_size/2), self.cfg.replay_buffer_num_workers,
-            #     self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
-            #     self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
-            # self._replay_iter = None
-            # self.old_replay_storage = ReplayBufferStorage(data_specs,
-            #                                           self.work_dir / 'old_buffer')
-            #
-            # self.old_replay_loader = make_replay_loader(
-            #     self.work_dir / 'old_buffer', self.cfg.load_num_frames,
-            #     int(self.cfg.batch_size/2), self.cfg.replay_buffer_num_workers,
-            #     self.cfg.save_snapshot, 1, self.cfg.discount, self.cfg.test_model,
-            #     self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
-            # self._old_replay_iter = None
-        else:
-            self.replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer,
-                                                         data_specs=data_specs)
-            # self.replay_storage = ReplayBufferStorage(data_specs,
-            #                                           self.work_dir / 'buffer')
-            #
-            # self.replay_loader = make_replay_loader(
-            #     self.work_dir / 'buffer', self.cfg.replay_buffer_size,
-            #     self.cfg.batch_size, self.cfg.replay_buffer_num_workers,
-            #     self.cfg.save_snapshot, self.cfg.nstep, self.cfg.discount, self.cfg.test_model,
-            #     self.cfg.time_ssl_K, self.cfg.dyn_prior_K)
-            # self._replay_iter = None
+        self.replay_buffer = hydra.utils.instantiate(self.cfg.replay_buffer, data_specs=data_specs)
 
-        self.video_recorder = VideoRecorder(
-            self.work_dir if self.cfg.save_video else None)
-        self.train_video_recorder = TrainVideoRecorder(
-            self.work_dir if self.cfg.save_train_video else None)
+        self.video_recorder = VideoRecorder(self.work_dir if self.cfg.save_video else None)
+        self.train_video_recorder = TrainVideoRecorder(self.work_dir if self.cfg.save_train_video else None)
 
 
     @property
@@ -151,85 +113,11 @@ class Workspace:
 
         return total_reward / episode
 
-    def eval_large_repeat_policy(self):
-        step, episode, total_reward = 0, 0, 0
-        eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
-
-        while eval_until_episode(episode):
-            episode_step = 0
-            time_step = self.eval_env.reset()
-            self.video_recorder.init(self.eval_env, enabled=(episode == 0))
-            while not time_step.last():
-                with torch.no_grad(), utils.eval_mode(self.agent):
-                    if episode_step % 2 == 0:
-                        action = self.agent.act(time_step.observation,
-                                                self.global_step,
-                                                eval_mode=True)
-                    else:
-                        action = last_action
-                time_step = self.eval_env.step(action)
-                last_action = copy.deepcopy(action)
-                self.video_recorder.record(self.eval_env)
-                total_reward += time_step.reward
-                step += 1
-                episode_step += 1
-
-            episode += 1
-            self.video_recorder.save(f'{self.global_frame}.mp4')
-
-        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            log('episode_reward', total_reward / episode)
-            log('episode_length', step * self.cfg.action_repeat / episode)
-            log('episode', self.global_episode)
-            log('step', self.global_step)
-
-        return total_reward / episode
-
-    def eval_loaded_policy(self):
-        step, episode, total_reward = 0, 0, 0
-        eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
-
-        while eval_until_episode(episode):
-            episode_step = 0
-            time_step = self.eval_env.reset()
-            three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-            self.video_recorder.init(self.eval_env, enabled=(episode == 0))
-            while not time_step.last():
-                with torch.no_grad(), utils.eval_mode(self.agent):
-                    if episode_step % 2 == 0:
-                        action = self.agent.loaded_policy_act(three_time_steps[0].observation,
-                                                              three_time_steps[1].observation,
-                                                              three_time_steps[2].observation,
-                                                              self.global_step, eval_mode=True)
-                    else:
-                        action = last_action
-                time_step = self.eval_env.step(action)
-                last_action = copy.deepcopy(action)
-                three_time_steps.pop(0)
-                three_time_steps.append(time_step)
-                self.video_recorder.record(self.eval_env)
-                total_reward += time_step.reward
-                step += 1
-                episode_step += 1
-
-            episode += 1
-            self.video_recorder.save(f'{self.global_frame}.mp4')
-
-        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            log('episode_reward', total_reward / episode)
-            log('episode_length', step * self.cfg.action_repeat / episode)
-            log('episode', self.global_episode)
-            log('step', self.global_step)
-
-        return total_reward / episode
-
     def train(self):
         # predicates
         train_until_step = utils.Until(self.cfg.num_train_frames,
                                        self.cfg.action_repeat)
         seed_until_step = utils.Until(self.cfg.num_seed_frames,
-                                      self.cfg.action_repeat)
-        load_until_step = utils.Until(self.cfg.load_num_frames,
                                       self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
@@ -238,12 +126,7 @@ class Workspace:
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
-        # record previous steps for getting the action from loaded policy
-        three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-        if self.cfg.load_model != 'none':
-            self.old_replay_buffer.add(time_step)
-        else:
-            self.replay_buffer.add(time_step)
+        self.replay_buffer.add(time_step)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
         repeat_prob_record_list = []
@@ -268,11 +151,7 @@ class Workspace:
 
                 # reset env
                 time_step = self.train_env.reset()
-                three_time_steps = [copy.deepcopy(time_step), copy.deepcopy(time_step), copy.deepcopy(time_step)]
-                if self.cfg.load_model != 'none' and load_until_step(self.global_step):
-                    self.old_replay_buffer.add(time_step)
-                else:
-                    self.replay_buffer.add(time_step)
+                self.replay_buffer.add(time_step)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
                 if self.cfg.save_snapshot:
@@ -280,31 +159,11 @@ class Workspace:
                 episode_step = 0
                 episode_reward = 0
 
-            # try to pretrain the actor-critic
-            if self.cfg.load_model != 'none' and\
-                    (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
-                print('start pretrain')
-                self.agent.pretrain(self.old_replay_buffer)
-
-            # test pretraining
-            # if self.cfg.load_model != 'none' and\
-            #         (self.global_step == (self.cfg.load_num_frames // self.cfg.action_repeat)):
-            #     print('start pretrain')
-            #     for i in range(100):
-            #         self.agent.pretrain(self.old_replay_buffer)
-            #         evaluated_reward = self.eval()
-            #         print('pretrain iter: ' + str(i))
-            #         print('eval_reward: ' + str(evaluated_reward))
-            #     raise ValueError('test')
-
             # try to evaluate
             if eval_every_step(self.global_step):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
-                if self.cfg.load_model != 'none' and load_until_step(self.global_step):
-                    loaded_policy_reward = self.eval_loaded_policy()
-                else:
-                    evaluated_reward = self.eval()
+                evaluated_reward = self.eval()
 
             # try to save the model
             if self.cfg.save_model:
@@ -316,20 +175,7 @@ class Workspace:
 
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
-                if self.cfg.load_model != 'none' and load_until_step(self.global_step):
-                    if episode_step % 2 == 0:
-                        action = self.agent.loaded_policy_act(three_time_steps[0].observation,
-                                                              three_time_steps[1].observation,
-                                                              three_time_steps[2].observation,
-                                                              self.global_step, eval_mode=False)
-                    else:
-                        action = last_action
-                elif self.cfg.repeat_type == 1:
-                    # uncertainty
-                    # action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    # if self.global_step != 0:
-                    #     action = self.agent.uncertainty_action(time_step.observation, action, last_action)
-
+                if self.cfg.repeat_type == 1:
                     # hash count (state)
                     obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
                     feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
@@ -443,30 +289,16 @@ class Workspace:
                                             eval_mode=False)
 
             # try to update the agent
-            if self.cfg.load_model != 'none':
-                if load_until_step(self.global_step):
-                    pass
-                elif seed_until_step(self.global_step-(self.cfg.load_num_frames // self.cfg.action_repeat)):
-                    pass
-                else:
-                    for _ in range(self.cfg.num_updates):
-                        metrics = self.agent.update(self.replay_buffer, self.global_step, self.old_replay_buffer)
-                    self.logger.log_metrics(metrics, self.global_frame, ty='train')
-            elif not seed_until_step(self.global_step):
+            if not seed_until_step(self.global_step):
                 for _ in range(self.cfg.num_updates):
-                    metrics = self.agent.update(self.replay_buffer, self.global_step, None)
+                    metrics = self.agent.update(self.replay_buffer, self.global_step)
                 self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
             # take env step
             time_step = self.train_env.step(action)
             last_action = copy.deepcopy(action)
-            three_time_steps.pop(0)
-            three_time_steps.append(time_step)
             episode_reward += time_step.reward
-            if self.cfg.load_model != 'none' and load_until_step(self.global_step):
-                self.old_replay_buffer.add(time_step)
-            else:
-                self.replay_buffer.add(time_step)
+            self.replay_buffer.add(time_step)
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1

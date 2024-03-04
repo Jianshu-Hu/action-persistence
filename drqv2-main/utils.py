@@ -49,30 +49,6 @@ def to_torch(xs, device):
     return tuple(torch.as_tensor(x, device=device) for x in xs)
 
 
-def two_batches_to_torch(batch, old_batch, device, step):
-    list = []
-    # filter the old replay buffer
-    # obs_index = torch.as_tensor(old_batch[5], device=device)
-    # odd_index = torch.reshape((obs_index % 2), (-1,))
-    # decision_index = torch.argwhere(odd_index).view(-1)
-    # old_num = int(old_batch[0].shape[0] * (0.99999 ** step))
-    # if old_num > 1:
-    #     sampled_old_index = np.random.choice(np.arange(old_batch[0].shape[0]), size=old_num, replace=False)
-    for i in range(len(batch)):
-        # decision_sample = old_batch[i][decision_index]
-        # if old_num > 1:
-        #     batch2_x = torch.as_tensor(old_batch[i], device=device)[sampled_old_index]
-        #     batch1_x = torch.as_tensor(batch[i], device=device)
-        #     list.append(torch.concat([batch1_x, batch2_x], dim=0))
-        # else:
-        #     batch1_x = torch.as_tensor(batch[i], device=device)
-        #     list.append(batch1_x)
-        batch2_x = torch.as_tensor(old_batch[i], device=device)
-        batch1_x = torch.as_tensor(batch[i], device=device)
-        list.append(torch.concat([batch1_x, batch2_x], dim=0))
-    return tuple(list)
-
-
 def weight_init(m):
     if isinstance(m, nn.Linear):
         nn.init.orthogonal_(m.weight.data)
