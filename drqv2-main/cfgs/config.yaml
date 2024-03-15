@@ -47,6 +47,8 @@ save_every_frames: 100000
 test_model: false
 
 # repeat
+epsilon_greedy: false
+epsilon_schedule: 'linear(1.0,0.1,500000)'
 repeat_type: 0
 
 ##### augmentation
@@ -82,6 +84,8 @@ agent:
   seed: ${seed}
   ensemble: ${ensemble}
   repeat_type: ${repeat_type}
+  epsilon_greedy: ${epsilon_greedy}
+  epsilon_schedule: ${epsilon_schedule}
 
 
 hydra:

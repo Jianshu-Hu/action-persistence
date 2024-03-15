@@ -4,14 +4,17 @@ import math
 import os
 
 
-def average_over_several_runs(folder):
+def average_over_several_runs(folder, smooth):
     data_all = []
     min_length = np.inf
     runs = os.listdir(folder)
     for i in range(len(runs)):
         data = np.loadtxt(folder+'/'+runs[i]+'/eval.csv', delimiter=',', skiprows=1)
         evaluation_freq = data[2, -3]-data[1, -3]
-        data_all.append(data[:, 2])
+        if smooth:
+            data_all.append(data[:, 3])
+        else:
+            data_all.append(data[:, 2])
         if data.shape[0] < min_length:
             min_length = data.shape[0]
     average = np.zeros([len(runs), min_length])
@@ -23,7 +26,7 @@ def average_over_several_runs(folder):
     return mean, std, evaluation_freq/1000
 
 
-def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save='save', title=""):
+def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save='save', title="", smooth=False):
     plt.rcParams["figure.figsize"] = (6, 5)
     # plt.rcParams["figure.figsize"] = (15, 12)
     fig, axs = plt.subplots(1, 1)
@@ -52,7 +55,7 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
         else:
             folder_name = 'saved_exps/'+prefix+folders[i]
             num_runs = len(os.listdir(folder_name))
-            mean_all, std_all, eval_freq = average_over_several_runs(folder_name)
+            mean_all, std_all, eval_freq = average_over_several_runs(folder_name, smooth)
 
             if prefix not in ['humanoid_stand/', 'humanoid_walk/', 'humanoid_run/']:
                 if len(mean_all) > 100:
@@ -79,19 +82,57 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
     else:
         plt.savefig('saved_figs/'+title)
 
-
-# 3.7
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-plot_several_folders(prefix, folders_1, title='quadruped_run_sim_count')
-
+# 3.21
 prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-plot_several_folders(prefix, folders_1, title='acrobot_swingup_sim_count')
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon')
 
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
-plot_several_folders(prefix, folders_1, title='reacher_hard_sim_count')
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon_smoothness', smooth=True)
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon_smoothness', smooth=True)
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon_smoothness', smooth=True)
+
+
+
+# 3.7
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_sim_count')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup_sim_count')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_sim_count')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2_sac', 'drqv2_sac_simhash_count', 'drqv2_sac_repeat_1_simhash_count']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_sac_sim_count')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2_sac', 'drqv2_sac_simhash_count', 'drqv2_sac_repeat_1_simhash_count']
+# plot_several_folders(prefix, folders_1, title='acroboot_swingup_sac_sim_count')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_sac', 'drqv2_sac_simhash_count', 'drqv2_sac_repeat_1_simhash_count']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_sac_sim_count')
 
 # 2.29
 # period = [0, 0, 50, 50, 50, 50]

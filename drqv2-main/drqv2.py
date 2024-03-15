@@ -159,7 +159,8 @@ class DrQV2Agent:
     def __init__(self, obs_shape, action_shape, work_dir, device, lr, feature_dim,
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
-                 aug_K, aug_type, train_dynamics_model, task_name, test_model, seed, ensemble, repeat_type):
+                 aug_K, aug_type, train_dynamics_model, task_name, test_model, seed, ensemble, repeat_type,
+                 epsilon_greedy, epsilon_schedule):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -222,6 +223,10 @@ class DrQV2Agent:
             self.initial_loss_list = []
             self.all_loss = []
 
+        # epsilon greedy
+        self.epsilon_greedy = epsilon_greedy
+        self.epsilon_schedule = epsilon_schedule
+
         self.test_model = test_model
 
         self.work_dir = work_dir
@@ -246,6 +251,11 @@ class DrQV2Agent:
         dist = self.actor(obs, stddev)
         if eval_mode or self.test_model:
             action = dist.mean
+        elif self.epsilon_greedy:
+            action = dist.mean
+            current_epsilon = utils.schedule(self.epsilon_schedule, step)
+            if step < self.num_expl_steps or np.random.uniform() < current_epsilon:
+                action.uniform_(-1.0, 1.0)
         else:
             action = dist.sample(clip=None)
             if step < self.num_expl_steps:

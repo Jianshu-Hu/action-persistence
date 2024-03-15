@@ -89,7 +89,9 @@ class Workspace:
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
 
+        total_smoothness = 0
         while eval_until_episode(episode):
+            last_action = None
             time_step = self.eval_env.reset()
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
             while not time_step.last():
@@ -97,6 +99,12 @@ class Workspace:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,
                                             eval_mode=True)
+                if last_action is None:
+                    last_action = action
+                else:
+                    smoothness = np.mean(np.square(action-last_action))
+                    total_smoothness += smoothness
+                    last_action = action
                 time_step = self.eval_env.step(action)
                 self.video_recorder.record(self.eval_env)
                 total_reward += time_step.reward
@@ -110,6 +118,7 @@ class Workspace:
             log('episode_length', step * self.cfg.action_repeat / episode)
             log('episode', self.global_episode)
             log('step', self.global_step)
+            log('episode_smoothness', total_smoothness / episode)
 
         return total_reward / episode
 
