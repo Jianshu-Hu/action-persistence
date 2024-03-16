@@ -39,19 +39,37 @@ class Encoder(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, noisy_net=False):
         super().__init__()
 
         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
 
-        self.policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, hidden_dim),
-                                    nn.ReLU(inplace=True),
-                                    nn.Linear(hidden_dim, action_shape[0]))
+        if noisy_net:
+            linear = utils.NoisyLinear
+        else:
+            linear = nn.Linear
+        self.linear = [linear(feature_dim, hidden_dim),
+                       linear(hidden_dim, hidden_dim), linear(hidden_dim, action_shape[0])]
+        layers = [self.linear[0],
+                  nn.ReLU(inplace=True), self.linear[1],
+                  nn.ReLU(inplace=True), self.linear[2]]
+        self.policy = nn.Sequential(*layers)
+
+        # self.policy = nn.Sequential(nn.Linear(feature_dim, hidden_dim),
+        #                             nn.ReLU(inplace=True),
+        #                             nn.Linear(hidden_dim, hidden_dim),
+        #                             nn.ReLU(inplace=True),
+        #                             nn.Linear(hidden_dim, action_shape[0]))
 
         self.apply(utils.weight_init)
+        if noisy_net:
+            for module in self.linear:
+                module.reset_parameters()
+
+    def reset_noise(self):
+        for module in self.linear:
+            module.reset_noise()
 
     def forward_mu_std(self, obs, std):
         h = self.trunk(obs)
@@ -73,35 +91,42 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, ensemble):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, ensemble, noisy_net=False):
         super().__init__()
 
         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
         self.num_Qs = ensemble
         self.Q_list = nn.ModuleList()
-        # for i in range(self.num_Qs):
-        #     self.Q_list.append(nn.Sequential(
-        #         nn.Linear(feature_dim + action_shape[0], hidden_dim), nn.LayerNorm(hidden_dim),
-        #         nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim), nn.LayerNorm(hidden_dim),
-        #         nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1)))
+        self.linear_list = []
+        if noisy_net:
+            linear = utils.NoisyLinear
+        else:
+            linear = nn.Linear
         for i in range(self.num_Qs):
-            self.Q_list.append(nn.Sequential(
-                nn.Linear(feature_dim + action_shape[0], hidden_dim),
-                nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1)))
-
-        # self.Q1 = nn.Sequential(
-        #     nn.Linear(feature_dim + action_shape[0], hidden_dim),
-        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
-        #
-        # self.Q2 = nn.Sequential(
-        #     nn.Linear(feature_dim + action_shape[0], hidden_dim),
-        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, hidden_dim),
-        #     nn.ReLU(inplace=True), nn.Linear(hidden_dim, 1))
+            # self.linear_list.append([linear(hidden_dim, hidden_dim),
+            #                         linear(hidden_dim, 1)])
+            # layers = [nn.Linear(feature_dim + action_shape[0], hidden_dim),
+            #     nn.ReLU(inplace=True), self.linear_list[i][0],
+            #     nn.ReLU(inplace=True), self.linear_list[i][1]]
+            self.linear_list.append([linear(feature_dim + action_shape[0], hidden_dim),
+                                    linear(hidden_dim, hidden_dim),
+                                    linear(hidden_dim, 1)])
+            layers = [self.linear_list[i][0],
+                nn.ReLU(inplace=True), self.linear_list[i][1],
+                nn.ReLU(inplace=True), self.linear_list[i][2]]
+            self.Q_list.append(nn.Sequential(*layers))
 
         self.apply(utils.weight_init)
+        if noisy_net:
+            for i in range(self.num_Qs):
+                for module in self.linear_list[i]:
+                    module.reset_parameters()
+
+    def reset_noise(self):
+        for i in range(self.num_Qs):
+            for module in self.linear_list[i]:
+                module.reset_noise()
 
     def forward(self, obs, action):
         h = self.trunk(obs)
@@ -160,7 +185,7 @@ class DrQV2Agent:
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, train_dynamics_model, task_name, test_model, seed, ensemble, repeat_type,
-                 epsilon_greedy, epsilon_schedule):
+                 epsilon_greedy, epsilon_schedule, noisy_net):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -173,6 +198,7 @@ class DrQV2Agent:
         self.feature_dim = feature_dim
         self.hidden_dim = hidden_dim
         self.lr = lr
+        self.noisy_net = noisy_net
 
         # models
         self.obs_shape = obs_shape
@@ -182,9 +208,9 @@ class DrQV2Agent:
                            hidden_dim).to(device)
 
         self.critic = Critic(self.encoder.repr_dim, action_shape, feature_dim,
-                             hidden_dim, self.ensemble).to(device)
+                             hidden_dim, self.ensemble, self.noisy_net).to(device)
         self.critic_target = Critic(self.encoder.repr_dim, action_shape,
-                                    feature_dim, hidden_dim, self.ensemble).to(device)
+                                    feature_dim, hidden_dim, self.ensemble, self.noisy_net).to(device)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
         # optimizers
@@ -255,6 +281,10 @@ class DrQV2Agent:
             action = dist.mean
             current_epsilon = utils.schedule(self.epsilon_schedule, step)
             if step < self.num_expl_steps or np.random.uniform() < current_epsilon:
+                action.uniform_(-1.0, 1.0)
+        elif self.noisy_net:
+            action = dist.mean
+            if step < self.num_expl_steps:
                 action.uniform_(-1.0, 1.0)
         else:
             action = dist.sample(clip=None)
@@ -444,6 +474,12 @@ class DrQV2Agent:
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target, self.critic_target_tau)
+
+        if self.noisy_net:
+            self.critic.reset_noise()
+            self.critic_target.reset_noise()
+
+            # self.actor.reset_noise()
 
         return metrics
 

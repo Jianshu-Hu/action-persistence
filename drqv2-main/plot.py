@@ -84,28 +84,39 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
 
 # 3.21
 prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon')
 
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon')
 
 prefix = 'quadruped_run/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon')
 
 prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2_epsilon_greedy_simhash_repeat']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon_smoothness', smooth=True)
 
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon_smoothness', smooth=True)
 
 prefix = 'quadruped_run/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon_smoothness', smooth=True)
+
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2_noisy_net_critic', 'drqv2_noisy_net_actor', 'drqv2_noisy_net_actor_critic']
+plot_several_folders(prefix, folders_1, title='reacher_hard_noisy_net')
 
 
 

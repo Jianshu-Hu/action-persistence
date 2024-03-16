@@ -49,6 +49,7 @@ test_model: false
 # repeat
 epsilon_greedy: false
 epsilon_schedule: 'linear(1.0,0.1,500000)'
+noisy_net: false
 repeat_type: 0
 
 ##### augmentation
@@ -86,6 +87,7 @@ agent:
   repeat_type: ${repeat_type}
   epsilon_greedy: ${epsilon_greedy}
   epsilon_schedule: ${epsilon_schedule}
+  noisy_net: ${noisy_net}
 
 
 hydra:
