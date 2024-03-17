@@ -188,7 +188,7 @@ class Workspace:
                     # hash count (state)
                     obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
                     feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
-                    if self.global_step == 0:
+                    if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     else:
                         repeat_prob = self.agent.hash_count.predict(feature)
@@ -207,7 +207,7 @@ class Workspace:
                     feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
                     state_action_feature = np.concatenate((feature, np.expand_dims(action, axis=0)), axis=1)
                     repeat_prob = self.agent.hash_count.predict(state_action_feature)
-                    if self.global_step == 0:
+                    if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     elif np.random.uniform() < repeat_prob:
                         action = last_action
@@ -245,7 +245,7 @@ class Workspace:
                         else:
                             repeat_prob = coefficient*torch.std(Q_ensemble).item()/Q_mean
                         repeat_prob_record_list.append(repeat_prob)
-                    if self.global_step == 0:
+                    if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     elif np.random.uniform() < repeat_prob:
                         action = last_action
@@ -285,13 +285,22 @@ class Workspace:
                         else:
                             repeat_prob = coefficient/(torch.mean(Q_samples)*torch.std(Q_samples))
                             repeat_prob_record_list.append(repeat_prob.item())
-                    if self.global_step == 0:
+                    if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     elif np.random.uniform() < repeat_prob:
                         action = last_action
                     if self.global_step % 5000 == 0:
                         np.savez(str(self.work_dir) + '/repeat_prob.npz',
                                  repeat_prob=np.array(repeat_prob_record_list))
+                elif self.cfg.epsilon_greedy and self.cfg.epsilon_zeta:
+                    if episode_step == 0:
+                        action = self.agent.act(time_step.observation,
+                                                self.global_step,
+                                                eval_mode=False, last_action=None)
+                    else:
+                        action = self.agent.act(time_step.observation,
+                                                self.global_step,
+                                                eval_mode=False, last_action=last_action)
                 else:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,
