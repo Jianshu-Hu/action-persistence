@@ -3,4 +3,5 @@
 .vscode
 
 outputs/
-storage/*
+saved_exps
+saved_figs
