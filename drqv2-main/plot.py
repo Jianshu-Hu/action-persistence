@@ -114,9 +114,24 @@ folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drq
 plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon_smoothness', smooth=True)
 
 
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_noisy_net_critic', 'drqv2_noisy_net_actor', 'drqv2_noisy_net_actor_critic']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_noisy_net')
+
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2_noisy_net_critic', 'drqv2_noisy_net_actor', 'drqv2_noisy_net_actor_critic']
+folders_1 = ['drqv2_noisy_net_actor_critic', 'drqv2_noisy_net_simhash_repeat',
+             'drqv2_action_repeat_1_noisy_net_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='reacher_hard_noisy_net')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2_noisy_net', 'drqv2_noisy_net_simhash_repeat',
+             'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_noisy_net')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_noisy_net', 'drqv2_noisy_net_simhash_repeat',
+             'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='quadruped_run_noisy_net')
 
 
 
