@@ -15,6 +15,43 @@ def init_params(m):
             m.bias.data.fill_(0)
 
 
+class QModel(nn.Module):
+    def __init__(self, obs_space, action_space):
+        super(QModel, self).__init__()
+        n, m, _ = obs_space['image']
+        self.conv1 = nn.Conv2d(3, 16, (2, 2))
+        self.conv2 = nn.Conv2d(16, 32, (2, 2))
+        self.conv3 = nn.Conv2d(32, 64, (2, 2))
+
+        self.image_conv = nn.Sequential(
+            self.conv1,
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2)),
+            self.conv2,
+            nn.ReLU(),
+            self.conv3,
+            nn.ReLU()
+        )
+        self.embedding_size = ((n-1)//2-2)*((m-1)//2-2)*64
+
+        self.head = nn.Sequential(
+            nn.Linear(self.embedding_size, 64),
+            nn.Tanh(),
+            nn.Linear(64, action_space.n)
+        )
+
+        # Initialize parameters correctly
+        self.apply(init_params)
+
+    def forward(self, obs, train=False):
+        if train:
+            obs = obs.permute(0, 3, 1, 2)
+        else:
+            obs = obs.image.permute(0, 3, 1, 2)
+        obs = self.image_conv(obs)
+        return self.head(obs.reshape(obs.size(0), -1))
+
+
 class ACModel(nn.Module, torch_ac.RecurrentACModel):
     def __init__(self, obs_space, action_space, use_memory=False, use_text=False):
         super().__init__()

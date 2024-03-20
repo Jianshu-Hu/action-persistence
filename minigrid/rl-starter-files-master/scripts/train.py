@@ -7,7 +7,7 @@ import sys
 
 import utils
 from utils import device
-from model import ACModel
+from model import ACModel, QModel
 
 
 # Parse arguments
@@ -62,6 +62,14 @@ parser.add_argument("--recurrence", type=int, default=1,
 parser.add_argument("--text", action="store_true", default=False,
                     help="add a GRU to the model to handle text input")
 
+# hyper-parameters for dqn
+parser.add_argument("--buffer_size", type=int, default=100000, help="size of replay buffer (default: 100000)")
+parser.add_argument("--init_epsilon", type=float, default=1.0, help="initial epsilon for exploration (default: 1.0)")
+parser.add_argument("--final_epsilon", type=float, default=0.1, help="final epsilon for exploration (default: 0.1)")
+parser.add_argument("--init_expl", type=int, default=2000, help="initial exploration steps (default: 1000)")
+parser.add_argument("--target_freq", type=int, default=100, help="update frequency for target network (default: 100)")
+parser.add_argument("--eval_freq", type=int, default=2000, help="eval frequency (default: 2000)")
+
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -96,6 +104,11 @@ if __name__ == "__main__":
 
     # Load environments
 
+    if args.algo == 'dqn':
+        args.procs = 1
+        eval_envs = []
+        for i in range(args.procs):
+            eval_envs.append(utils.make_env(args.env, args.seed + 10000 * i))
     envs = []
     for i in range(args.procs):
         envs.append(utils.make_env(args.env, args.seed + 10000 * i))
@@ -117,13 +130,17 @@ if __name__ == "__main__":
     txt_logger.info("Observations preprocessor loaded")
 
     # Load model
-
-    acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
-    if "model_state" in status:
-        acmodel.load_state_dict(status["model_state"])
-    acmodel.to(device)
-    txt_logger.info("Model loaded\n")
-    txt_logger.info("{}\n".format(acmodel))
+    if args.algo == 'dqn':
+        Q_network = QModel(obs_space, envs[0].action_space).to(device)
+        target_network = QModel(obs_space, envs[0].action_space).to(device)
+        txt_logger.info("{}\n".format(Q_network))
+    else:
+        acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
+        if "model_state" in status:
+            acmodel.load_state_dict(status["model_state"])
+        acmodel.to(device)
+        txt_logger.info("Model loaded\n")
+        txt_logger.info("{}\n".format(acmodel))
 
     # Load algo
 
@@ -136,9 +153,10 @@ if __name__ == "__main__":
                                 args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
                                 args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)
     elif args.algo == 'dqn':
-        algo = torch_ac.DQNAlgo(envs, acmodel, device, args.frames_per_proc, args.discount, args.lr, args.gae_lambda,
-                                args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
-                                args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)
+        algo = torch_ac.DQNAlgo(envs, eval_envs, Q_network, target_network, device, args.frames_per_proc, args.discount, args.lr,
+                                args.optim_eps, args.epochs, args.batch_size, preprocess_obss, args.frames,
+                                args.init_epsilon, args.final_epsilon,
+                                args.target_freq, args.buffer_size, args.init_expl)
     else:
         raise ValueError("Incorrect algorithm name: {}".format(args.algo))
 
@@ -155,53 +173,72 @@ if __name__ == "__main__":
     while num_frames < args.frames:
         # Update model parameters
         update_start_time = time.time()
-        exps, logs1 = algo.collect_experiences()
-        logs2 = algo.update_parameters(exps)
-        logs = {**logs1, **logs2}
-        update_end_time = time.time()
+        if args.algo == 'dqn':
+            if num_frames % args.eval_freq == 0:
+                reward = algo.eval()
+                duration = int(time.time() - start_time)
 
-        num_frames += logs["num_frames"]
-        update += 1
+                header = ["frames", "duration", 'return']
+                data = [num_frames, duration, reward]
 
-        # Print logs
+                txt_logger.info("F {:06} | D {} | R {:.2f}".format(*data))
 
-        if update % args.log_interval == 0:
-            fps = logs["num_frames"] / (update_end_time - update_start_time)
-            duration = int(time.time() - start_time)
-            return_per_episode = utils.synthesize(logs["return_per_episode"])
-            rreturn_per_episode = utils.synthesize(logs["reshaped_return_per_episode"])
-            num_frames_per_episode = utils.synthesize(logs["num_frames_per_episode"])
+                if num_frames == 0:
+                    csv_logger.writerow(header)
+                csv_logger.writerow(data)
+                csv_file.flush()
 
-            header = ["update", "frames", "FPS", "duration"]
-            data = [update, num_frames, fps, duration]
-            header += ["rreturn_" + key for key in rreturn_per_episode.keys()]
-            data += rreturn_per_episode.values()
-            header += ["num_frames_" + key for key in num_frames_per_episode.keys()]
-            data += num_frames_per_episode.values()
-            header += ["entropy", "value", "policy_loss", "value_loss", "grad_norm"]
-            data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
+                for field, value in zip(header, data):
+                    tb_writer.add_scalar(field, value, num_frames)
+            num_frames = algo.collect_experiences(num_frames)
+        else:
+            exps, logs1 = algo.collect_experiences()
+            logs2 = algo.update_parameters(exps)
+            logs = {**logs1, **logs2}
+            update_end_time = time.time()
 
-            txt_logger.info(
-                "U {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
-                .format(*data))
+            num_frames += logs["num_frames"]
+            update += 1
 
-            header += ["return_" + key for key in return_per_episode.keys()]
-            data += return_per_episode.values()
+            # Print logs
 
-            if status["num_frames"] == 0:
-                csv_logger.writerow(header)
-            csv_logger.writerow(data)
-            csv_file.flush()
+            if update % args.log_interval == 0:
+                fps = logs["num_frames"] / (update_end_time - update_start_time)
+                duration = int(time.time() - start_time)
+                return_per_episode = utils.synthesize(logs["return_per_episode"])
+                rreturn_per_episode = utils.synthesize(logs["reshaped_return_per_episode"])
+                num_frames_per_episode = utils.synthesize(logs["num_frames_per_episode"])
 
-            for field, value in zip(header, data):
-                tb_writer.add_scalar(field, value, num_frames)
+                header = ["update", "frames", "FPS", "duration"]
+                data = [update, num_frames, fps, duration]
+                header += ["rreturn_" + key for key in rreturn_per_episode.keys()]
+                data += rreturn_per_episode.values()
+                header += ["num_frames_" + key for key in num_frames_per_episode.keys()]
+                data += num_frames_per_episode.values()
+                header += ["entropy", "value", "policy_loss", "value_loss", "grad_norm"]
+                data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
 
-        # Save status
+                txt_logger.info(
+                    "U {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
+                    .format(*data))
 
-        if args.save_interval > 0 and update % args.save_interval == 0:
-            status = {"num_frames": num_frames, "update": update,
-                      "model_state": acmodel.state_dict(), "optimizer_state": algo.optimizer.state_dict()}
-            if hasattr(preprocess_obss, "vocab"):
-                status["vocab"] = preprocess_obss.vocab.vocab
-            utils.save_status(status, model_dir)
-            txt_logger.info("Status saved")
+                header += ["return_" + key for key in return_per_episode.keys()]
+                data += return_per_episode.values()
+
+                if status["num_frames"] == 0:
+                    csv_logger.writerow(header)
+                csv_logger.writerow(data)
+                csv_file.flush()
+
+                for field, value in zip(header, data):
+                    tb_writer.add_scalar(field, value, num_frames)
+
+            # Save status
+
+            if args.save_interval > 0 and update % args.save_interval == 0:
+                status = {"num_frames": num_frames, "update": update,
+                          "model_state": acmodel.state_dict(), "optimizer_state": algo.optimizer.state_dict()}
+                if hasattr(preprocess_obss, "vocab"):
+                    status["vocab"] = preprocess_obss.vocab.vocab
+                utils.save_status(status, model_dir)
+                txt_logger.info("Status saved")
