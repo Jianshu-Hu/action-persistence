@@ -9,9 +9,12 @@ def average_over_several_runs(folder):
     min_length = np.inf
     runs = os.listdir(folder)
     for i in range(len(runs)):
-        data = np.loadtxt(folder+'/'+runs[i]+'/log.csv', delimiter=',', dtype=str)
-        evaluation_freq = float(data[3, 1])-float(data[1, 1])
-        episode_reward = (data[:, 4][data[:, 4] != 'rreturn_mean']).astype(float)
+        # data = np.loadtxt(folder+'/'+runs[i]+'/log.csv', delimiter=',', dtype=str)
+        # evaluation_freq = float(data[3, 1])-float(data[1, 1])
+        # episode_reward = (data[:, 4][data[:, 4] != 'rreturn_mean']).astype(float)
+        data = np.loadtxt(folder+'/'+runs[i]+'/log.csv', delimiter=',', dtype=float, skiprows=1)
+        evaluation_freq = float(data[3, 0])-float(data[2, 0])
+        episode_reward = data[:, 2]
         data_all.append(episode_reward)
         if episode_reward.shape[0] < min_length:
             min_length = episode_reward.shape[0]
@@ -53,7 +56,12 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
     else:
         plt.savefig('saved_figs/'+title)
 
+
 # 3.21
 prefix = 'doorkey-5x5-v0/'
-folders_1 = ['ppo']
-plot_several_folders(prefix, folders_1, title='doorkey-5x5')
+folders_1 = ['dqn', 'dqn_epsilon_zeta', 'dqn_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='dqn_doorkey-5x5')
+
+prefix = 'empty-6x6-v0/'
+folders_1 = ['dqn', 'dqn_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='dqn_empty-6x6')

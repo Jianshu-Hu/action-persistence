@@ -57,7 +57,7 @@ class DQNAlgo():
 
     def __init__(self, envs, eval_envs, Q_network, target_network, device=None, frames_per_proc=1, discount=0.99, lr=0.001,
                  adam_eps=1e-8, epochs=4, batch_size=256, preprocess_obss=None,
-                 total_frames=100000, init_epsilon=1.0, final_epsilon=0.1,
+                 total_frames=100000, init_epsilon=1.0, final_epsilon=0.1, zeta_epsilon=False, simhash_repeat=False,
                  target_freq=100, buffer_size=100000, init_expl=1000):
 
         self.env = ParallelEnv(envs)
@@ -83,6 +83,14 @@ class DQNAlgo():
         self.total_frames = total_frames
         self.init_epsilon = init_epsilon
         self.final_epsilon = final_epsilon
+        self.zeta_epsilon = zeta_epsilon
+        self.simhash_repeat = simhash_repeat
+        if self.simhash_repeat:
+            self.obs = self.env.reset()
+            tmp_obs = self.preprocess_obss(self.obs, device=self.device)
+            with torch.no_grad():
+                feature = self.Q_network.forward_emb(tmp_obs)
+            self.simhash_count = HashingBonusEvaluator(dim_key=128, obs_processed_flat_dim=feature.size(1))
         self.init_expl = init_expl
 
         self.optimizer = torch.optim.Adam(self.Q_network.parameters(), lr, eps=adam_eps)
@@ -94,6 +102,9 @@ class DQNAlgo():
 
         self.obs = self.env.reset()
         self.done = (False,)
+        self.last_action = None
+        self.repeat_num = 0
+
         preprocessed_obs = self.preprocess_obss(self.obs, device=self.device)
         self.replay_buffer = ReplayMemory(capacity=buffer_size, obs_shape=preprocessed_obs.image.shape[1:])
 
@@ -119,25 +130,52 @@ class DQNAlgo():
         if self.done[0]:
             self.obs = self.env.reset()
             self.done = (False,)
+            self.last_action = None
+            self.repeat_num = 0
         preprocessed_obs = self.preprocess_obss(self.obs, device=self.device)
         # choose action
         current_epsilon = self.init_epsilon-(num_frames/self.total_frames)*(self.init_epsilon-self.final_epsilon)
         if num_frames <= self.init_expl:
             action = random.randrange(self.n_actions)
         else:
-            if random.random() > current_epsilon:
+            if self.zeta_epsilon:
+                if self.repeat_num == 0:
+                    if random.random() > current_epsilon:
+                        with torch.no_grad():
+                            Q = self.Q_network(preprocessed_obs)[0]
+                            action = torch.argmax(Q).item()
+                    else:
+                        action = random.randrange(self.n_actions)
+                        self.repeat_num = np.random.zipf(a=2)-1
+                else:
+                    action = self.last_action
+                    self.repeat_num = self.repeat_num-1
+            elif self.simhash_repeat:
                 with torch.no_grad():
-                    Q = self.Q_network(preprocessed_obs)[0]
-                    action = torch.argmax(Q).item()
+                    feature = self.Q_network.forward_emb(preprocessed_obs)
+                repeat_prob = self.simhash_count.predict(feature.cpu().numpy())
+                if random.random() > repeat_prob or self.last_action is None:
+                    if random.random() > current_epsilon:
+                        with torch.no_grad():
+                            Q = self.Q_network(preprocessed_obs)[0]
+                            action = torch.argmax(Q).item()
+                    else:
+                        action = random.randrange(self.n_actions)
+                else:
+                    action = self.last_action
             else:
-                action = random.randrange(self.n_actions)
+                if random.random() > current_epsilon:
+                    with torch.no_grad():
+                        Q = self.Q_network(preprocessed_obs)[0]
+                        action = torch.argmax(Q).item()
+                else:
+                    action = random.randrange(self.n_actions)
+        self.last_action = action
         next_obs, reward, terminated, truncated, _ = self.env.step([action])
         self.done = tuple(a | b for a, b in zip(terminated, truncated))
 
         preprocessed_next_obs = self.preprocess_obss(next_obs, device=self.device)
         transition = [preprocessed_obs.image, action, preprocessed_next_obs.image, reward]
-        if reward[0] > 0:
-            print(num_frames)
         self.replay_buffer.add(transition)
         self.obs = next_obs
 
@@ -157,6 +195,11 @@ class DQNAlgo():
             actions = torch.from_numpy(actions).to(self.device)
             next_obs = torch.from_numpy(next_obs).to(self.device)
             rewards = torch.from_numpy(rewards).to(self.device)
+            if self.simhash_repeat:
+                # update hash table
+                with torch.no_grad():
+                    feature = self.Q_network.forward_emb(obs, train=True)
+                    self.simhash_count.fit_before_process_samples(feature.cpu().numpy())
             Q = self.Q_network(obs, train=True)[torch.arange(actions.size(0)), torch.squeeze(actions, 1).to(torch.long)]
             with torch.no_grad():
                 target_Q = rewards+self.discount*self.target_network(next_obs, train=True).max(dim=1)[0]
@@ -172,3 +215,59 @@ class DQNAlgo():
 
     def update_target_network(self):
         self.target_network.load_state_dict(self.Q_network.state_dict())
+
+
+class HashingBonusEvaluator(object):
+    """Hash-based count bonus for exploration.
+
+    Tang, H., Houthooft, R., Foote, D., Stooke, A., Chen, X., Duan, Y., Schulman, J., De Turck, F., and Abbeel, P. (2017).
+    #Exploration: A study of count-based exploration for deep reinforcement learning.
+    In Advances in Neural Information Processing Systems (NIPS)
+    """
+
+    def __init__(self, dim_key=128, obs_processed_flat_dim=None, bucket_sizes=None):
+        # Hashing function: SimHash
+        if bucket_sizes is None:
+            # Large prime numbers
+            bucket_sizes = [999931, 999953, 999959, 999961, 999979, 999983]
+        mods_list = []
+        for bucket_size in bucket_sizes:
+            mod = 1
+            mods = []
+            for _ in range(dim_key):
+                mods.append(mod)
+                mod = (mod * 2) % bucket_size
+            mods_list.append(mods)
+        self.bucket_sizes = np.asarray(bucket_sizes)
+        self.mods_list = np.asarray(mods_list).T
+        self.tables = np.zeros((len(bucket_sizes), np.max(bucket_sizes)))
+        self.projection_matrix = np.random.normal(size=(obs_processed_flat_dim, dim_key))
+
+    def compute_keys(self, obss):
+        binaries = np.sign(np.asarray(obss).dot(self.projection_matrix))
+        keys = np.cast['int'](binaries.dot(self.mods_list)) % self.bucket_sizes
+        return keys
+
+    def inc_hash(self, obss):
+        keys = self.compute_keys(obss)
+        for idx in range(len(self.bucket_sizes)):
+            np.add.at(self.tables[idx], keys[:, idx], 1)
+
+    def query_hash(self, obss):
+        keys = self.compute_keys(obss)
+        all_counts = []
+        for idx in range(len(self.bucket_sizes)):
+            all_counts.append(self.tables[idx, keys[:, idx]])
+        return np.asarray(all_counts).min(axis=0)
+
+    def fit_before_process_samples(self, obs):
+        if len(obs.shape) == 1:
+            obss = [obs]
+        else:
+            obss = obs
+        before_counts = self.query_hash(obss)
+        self.inc_hash(obss)
+
+    def predict(self, obs):
+        counts = self.query_hash(obs)
+        return 1. / np.maximum(1., np.sqrt(counts))

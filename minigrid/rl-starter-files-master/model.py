@@ -51,6 +51,14 @@ class QModel(nn.Module):
         obs = self.image_conv(obs)
         return self.head(obs.reshape(obs.size(0), -1))
 
+    def forward_emb(self, obs, train=False):
+        if train:
+            obs = obs.permute(0, 3, 1, 2)
+        else:
+            obs = obs.image.permute(0, 3, 1, 2)
+        obs = self.image_conv(obs)
+        return obs.reshape(obs.size(0), -1)
+
 
 class ACModel(nn.Module, torch_ac.RecurrentACModel):
     def __init__(self, obs_space, action_space, use_memory=False, use_text=False):

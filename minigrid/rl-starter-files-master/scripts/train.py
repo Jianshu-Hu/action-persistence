@@ -66,6 +66,8 @@ parser.add_argument("--text", action="store_true", default=False,
 parser.add_argument("--buffer_size", type=int, default=100000, help="size of replay buffer (default: 100000)")
 parser.add_argument("--init_epsilon", type=float, default=1.0, help="initial epsilon for exploration (default: 1.0)")
 parser.add_argument("--final_epsilon", type=float, default=0.1, help="final epsilon for exploration (default: 0.1)")
+parser.add_argument("--zeta_epsilon", action='store_true', default=False, help="epsilon zeta for exploration (default: False)")
+parser.add_argument("--simhash_repeat", action='store_true', default=False, help="use simhash for deciding action repeat (default: False)")
 parser.add_argument("--init_expl", type=int, default=2000, help="initial exploration steps (default: 1000)")
 parser.add_argument("--target_freq", type=int, default=100, help="update frequency for target network (default: 100)")
 parser.add_argument("--eval_freq", type=int, default=2000, help="eval frequency (default: 2000)")
@@ -155,7 +157,7 @@ if __name__ == "__main__":
     elif args.algo == 'dqn':
         algo = torch_ac.DQNAlgo(envs, eval_envs, Q_network, target_network, device, args.frames_per_proc, args.discount, args.lr,
                                 args.optim_eps, args.epochs, args.batch_size, preprocess_obss, args.frames,
-                                args.init_epsilon, args.final_epsilon,
+                                args.init_epsilon, args.final_epsilon, args.zeta_epsilon, args.simhash_repeat,
                                 args.target_freq, args.buffer_size, args.init_expl)
     else:
         raise ValueError("Incorrect algorithm name: {}".format(args.algo))
