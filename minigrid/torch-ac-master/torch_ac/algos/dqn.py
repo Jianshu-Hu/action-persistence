@@ -55,7 +55,8 @@ class DQNAlgo():
     """The Proximal Policy Optimization algorithm
     ([Schulman et al., 2015](https://arxiv.org/abs/1707.06347))."""
 
-    def __init__(self, envs, eval_envs, Q_network, target_network, device=None, frames_per_proc=1, discount=0.99, lr=0.001,
+    def __init__(self, envs, eval_envs, Q_network, target_network, Q_loaded_network,
+                 device=None, frames_per_proc=1, discount=0.99, lr=0.001,
                  adam_eps=1e-8, epochs=4, batch_size=256, preprocess_obss=None,
                  total_frames=100000, init_epsilon=1.0, final_epsilon=0.1, zeta_epsilon=False, simhash_repeat=False,
                  target_freq=100, buffer_size=100000, init_expl=1000):
@@ -64,6 +65,7 @@ class DQNAlgo():
         self.eval_env = ParallelEnv(eval_envs)
         self.Q_network = Q_network
         self.target_network = target_network
+        self.Q_loaded_network = Q_loaded_network
         self.device = device
         self.discount = discount
         self.lr = lr
@@ -75,6 +77,7 @@ class DQNAlgo():
         self.Q_network.train()
         self.target_network.to(self.device)
         self.target_network.train()
+        self.Q_loaded_network.to(self.device)
 
         self.epochs = epochs
         self.batch_size = batch_size
@@ -95,6 +98,7 @@ class DQNAlgo():
 
         self.optimizer = torch.optim.Adam(self.Q_network.parameters(), lr, eps=adam_eps)
         self.update_target = target_freq
+        self.target_tau = 0.01
         if frames_per_proc is None:
             self.frames_per_proc = 1
         else:
@@ -137,6 +141,7 @@ class DQNAlgo():
         current_epsilon = self.init_epsilon-(num_frames/self.total_frames)*(self.init_epsilon-self.final_epsilon)
         if num_frames <= self.init_expl:
             action = random.randrange(self.n_actions)
+            repeat_prob = None
         else:
             if self.zeta_epsilon:
                 if self.repeat_num == 0:
@@ -152,7 +157,8 @@ class DQNAlgo():
                     self.repeat_num = self.repeat_num-1
             elif self.simhash_repeat:
                 with torch.no_grad():
-                    feature = self.Q_network.forward_emb(preprocessed_obs)
+                    # feature = self.target_network.forward_emb(preprocessed_obs)
+                    feature = self.Q_loaded_network.forward_emb(preprocessed_obs)
                 repeat_prob = self.simhash_count.predict(feature.cpu().numpy())
                 if random.random() > repeat_prob or self.last_action is None:
                     if random.random() > current_epsilon:
@@ -184,7 +190,10 @@ class DQNAlgo():
             self.update_parameters(num_frames)
 
         num_frames += 1
-        return num_frames
+        if self.simhash_repeat:
+            return num_frames, repeat_prob
+        else:
+            return num_frames
 
     def update_parameters(self, num_frames):
         # update network
@@ -198,7 +207,8 @@ class DQNAlgo():
             if self.simhash_repeat:
                 # update hash table
                 with torch.no_grad():
-                    feature = self.Q_network.forward_emb(obs, train=True)
+                    # feature = self.target_network.forward_emb(obs, train=True)
+                    feature = self.Q_loaded_network.forward_emb(obs, train=True)
                     self.simhash_count.fit_before_process_samples(feature.cpu().numpy())
             Q = self.Q_network(obs, train=True)[torch.arange(actions.size(0)), torch.squeeze(actions, 1).to(torch.long)]
             with torch.no_grad():
@@ -210,12 +220,17 @@ class DQNAlgo():
             loss.backward()
             self.optimizer.step()
             # update target network if necessary
-            if num_frames % self.update_target == 0:
-                self.update_target_network()
+            # if num_frames % self.update_target == 0:
+            #     self.update_target_network()
+            self.soft_update_params()
 
     def update_target_network(self):
         self.target_network.load_state_dict(self.Q_network.state_dict())
 
+    def soft_update_params(self):
+        for param, target_param in zip(self.Q_network.parameters(), self.target_network.parameters()):
+            target_param.data.copy_(self.target_tau * param.data +
+                                    (1 - self.target_tau) * target_param.data)
 
 class HashingBonusEvaluator(object):
     """Hash-based count bonus for exploration.
@@ -270,4 +285,4 @@ class HashingBonusEvaluator(object):
 
     def predict(self, obs):
         counts = self.query_hash(obs)
-        return 1. / np.maximum(1., np.sqrt(counts))
+        return 1.0 / np.maximum(1., np.sqrt(counts))

@@ -1,6 +1,9 @@
 import argparse
 import time
 import datetime
+
+import numpy as np
+
 import torch_ac
 import tensorboardX
 import sys
@@ -71,6 +74,7 @@ parser.add_argument("--simhash_repeat", action='store_true', default=False, help
 parser.add_argument("--init_expl", type=int, default=2000, help="initial exploration steps (default: 1000)")
 parser.add_argument("--target_freq", type=int, default=100, help="update frequency for target network (default: 100)")
 parser.add_argument("--eval_freq", type=int, default=2000, help="eval frequency (default: 2000)")
+parser.add_argument("--load_model", default=None, help="name of the model to load")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -90,6 +94,8 @@ if __name__ == "__main__":
     txt_logger = utils.get_txt_logger(model_dir)
     csv_file, csv_logger = utils.get_csv_logger(model_dir)
     tb_writer = tensorboardX.SummaryWriter(model_dir)
+    if args.simhash_repeat:
+        repeat_prob_list = []
 
     # Log command and all script arguments
 
@@ -136,6 +142,13 @@ if __name__ == "__main__":
         Q_network = QModel(obs_space, envs[0].action_space).to(device)
         target_network = QModel(obs_space, envs[0].action_space).to(device)
         txt_logger.info("{}\n".format(Q_network))
+        Q_loaded_network = QModel(obs_space, envs[0].action_space).to(device)
+        if args.load_model is not None:
+            load_model_dir = utils.get_model_dir(args.load_model)
+            load_model_status = utils.get_status(load_model_dir)
+            Q_loaded_network.load_state_dict(load_model_status["model_state"])
+            txt_logger.info("Model loaded\n")
+            txt_logger.info("{}\n".format(Q_loaded_network))
     else:
         acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
         if "model_state" in status:
@@ -155,7 +168,8 @@ if __name__ == "__main__":
                                 args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
                                 args.optim_eps, args.clip_eps, args.epochs, args.batch_size, preprocess_obss)
     elif args.algo == 'dqn':
-        algo = torch_ac.DQNAlgo(envs, eval_envs, Q_network, target_network, device, args.frames_per_proc, args.discount, args.lr,
+        algo = torch_ac.DQNAlgo(envs, eval_envs, Q_network, target_network, Q_loaded_network,
+                                device, args.frames_per_proc, args.discount, args.lr,
                                 args.optim_eps, args.epochs, args.batch_size, preprocess_obss, args.frames,
                                 args.init_epsilon, args.final_epsilon, args.zeta_epsilon, args.simhash_repeat,
                                 args.target_freq, args.buffer_size, args.init_expl)
@@ -192,7 +206,22 @@ if __name__ == "__main__":
 
                 for field, value in zip(header, data):
                     tb_writer.add_scalar(field, value, num_frames)
-            num_frames = algo.collect_experiences(num_frames)
+            if args.simhash_repeat:
+                num_frames, repeat_prob = algo.collect_experiences(num_frames)
+                if repeat_prob is not None:
+                    repeat_prob_list.append(repeat_prob)
+                    if len(repeat_prob_list) % 1000 == 0:
+                        np.savetxt(model_dir+'/repeat_prob.csv', np.array(repeat_prob_list), delimiter=",")
+            else:
+                num_frames = algo.collect_experiences(num_frames)
+
+            if args.save_interval > 0 and num_frames % args.save_interval == 0:
+                status = {"num_frames": num_frames, "update": update,
+                          "model_state": Q_network.state_dict(), "optimizer_state": algo.optimizer.state_dict()}
+                if hasattr(preprocess_obss, "vocab"):
+                    status["vocab"] = preprocess_obss.vocab.vocab
+                utils.save_status(status, model_dir)
+                txt_logger.info("Status saved")
         else:
             exps, logs1 = algo.collect_experiences()
             logs2 = algo.update_parameters(exps)

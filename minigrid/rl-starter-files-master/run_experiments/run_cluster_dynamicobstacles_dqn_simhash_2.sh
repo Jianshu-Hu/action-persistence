@@ -8,4 +8,4 @@ tag=dqn_simhash_repeat
 seed=2
 
 echo "start running $tag with seed $seed"
-python3 -m scripts.train --algo dqn --simhash_repeat --env MiniGrid-Dynamic-Obstacles-16x16-v0 --eval_freq=2000 --seed $seed --frames=100000
+python3 -m scripts.train --algo dqn --simhash_repeat --env MiniGrid-Dynamic-Obstacles-8x8-v0 --eval_freq=1000 --seed $seed --frames=50000

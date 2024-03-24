@@ -65,3 +65,12 @@ plot_several_folders(prefix, folders_1, title='dqn_doorkey-5x5')
 prefix = 'empty-6x6-v0/'
 folders_1 = ['dqn', 'dqn_simhash_repeat']
 plot_several_folders(prefix, folders_1, title='dqn_empty-6x6')
+
+prefix = 'empty-8x8-v0/'
+folders_1 = ['dqn', 'dqn_simhash_repeat', 'dqn_simhash_repeat_target_network',
+             'dqn_simhash_repeat_target_network_c2', 'dqn_simhash_repeat_target_network_c05']
+plot_several_folders(prefix, folders_1, title='dqn_empty-8x8')
+
+prefix = 'dynamicobstacle-8x8-v0/'
+folders_1 = ['dqn', 'dqn_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='dqn_dynamicobstacle-8x8')

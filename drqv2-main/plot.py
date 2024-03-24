@@ -57,7 +57,8 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
             num_runs = len(os.listdir(folder_name))
             mean_all, std_all, eval_freq = average_over_several_runs(folder_name, smooth)
 
-            if prefix not in ['humanoid_stand/', 'humanoid_walk/', 'humanoid_run/']:
+            if prefix not in ['humanoid_stand/', 'humanoid_walk/', 'humanoid_run/',
+                              'manipulation_reach_site/']:
                 if len(mean_all) > 100:
                     mean_all = mean_all[:100]
                     std_all = std_all[:100]
@@ -81,6 +82,13 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
         plt.show()
     else:
         plt.savefig('saved_figs/'+title)
+
+
+# 3.28
+prefix = 'manipulation_reach_site/'
+folders_1 = ['drqv2',
+             'drqv2_simhash_repeat']
+plot_several_folders(prefix, folders_1, title='manipulation_reach_site_simhash')
 
 # 3.21
 prefix = 'acrobot_swingup/'
