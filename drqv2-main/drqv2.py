@@ -189,7 +189,8 @@ class DrQV2Agent:
                  hidden_dim, critic_target_tau, num_expl_steps,
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, train_dynamics_model, task_name, test_model, seed, ensemble, repeat_type,
-                 epsilon_greedy, epsilon_schedule, epsilon_zeta, noisy_net):
+                 repeat_coefficient,
+                 epsilon_greedy, epsilon_schedule, epsilon_zeta, noisy_net, load_folder, load_model):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -239,12 +240,24 @@ class DrQV2Agent:
 
         # repeat
         self.repeat_type = repeat_type
+        self.load_folder = load_folder
+        if load_folder != 'None':
+            filename = work_dir+'/../../../saved_model/manipulation_'+task_name+'/'+load_folder+'/seed_'+str(seed)+'/'+\
+                       load_model
+            print(filename)
+            self.encoder_repeat = Encoder(obs_shape).to(device)
+            self.critic_repeat = Critic(self.encoder.repr_dim, action_shape, feature_dim,
+                                 hidden_dim, self.ensemble, self.noisy_net).to(device)
+            self.critic_repeat.load_state_dict(torch.load(filename + "_critic"))
+            self.encoder_repeat.load_state_dict(torch.load(filename + "_encoder"))
         if repeat_type == 1:
             self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
-                                                          obs_processed_flat_dim=feature_dim)
+                                                          obs_processed_flat_dim=feature_dim,
+                                                          repeat_coefficient=repeat_coefficient)
         elif repeat_type == 2:
             self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
-                                                          obs_processed_flat_dim=feature_dim + action_shape[0])
+                                                          obs_processed_flat_dim=feature_dim + action_shape[0],
+                                                          repeat_coefficient=repeat_coefficient)
         elif repeat_type == 3:
             self.rnd = utils.RNDModel(obs_shape, feature_dim).to(device)
             self.rnd_opt = torch.optim.Adam(list(self.rnd.predictor_encoder.parameters())+
@@ -434,7 +447,10 @@ class DrQV2Agent:
         if self.repeat_type == 1:
             # update hash count
             with torch.no_grad():
-                feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
+                if self.load_folder != 'None':
+                    feature = (self.critic_repeat.trunk(self.encoder_repeat(obs.float()))).cpu().numpy()
+                else:
+                    feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
                 self.hash_count.fit_before_process_samples(feature)
         elif self.repeat_type == 2:
             # update hash count

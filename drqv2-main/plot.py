@@ -58,7 +58,8 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
             mean_all, std_all, eval_freq = average_over_several_runs(folder_name, smooth)
 
             if prefix not in ['humanoid_stand/', 'humanoid_walk/', 'humanoid_run/',
-                              'manipulation_reach_site/']:
+                              'manipulation_reach_site/', 'manipulation_place_brick/',
+                              'manipulator_bring_ball/']:
                 if len(mean_all) > 100:
                     mean_all = mean_all[:100]
                     std_all = std_all[:100]
@@ -84,62 +85,91 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
         plt.savefig('saved_figs/'+title)
 
 
-# 3.28
+# 4.4
 prefix = 'manipulation_reach_site/'
-folders_1 = ['drqv2',
-             'drqv2_simhash_repeat']
+# folders_1 = ['drqv2',
+#              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05', 'drqv2_repeat_1_simhash_repeat_c05',
+#              'drqv2_simhash_repeat_pow07']
+folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
 plot_several_folders(prefix, folders_1, title='manipulation_reach_site_simhash')
 
+prefix = 'manipulation_reach_site/'
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+             'drqv2_epsilon_greedy_simhash_repeat_c05',
+             'drqv2_repeat_1_epsilon_greedy_simhash_repeat_c05']
+plot_several_folders(prefix, folders_1, title='manipulation_reach_site_epsilon_greedy')
+
+prefix = 'manipulation_reach_duplo/'
+folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+plot_several_folders(prefix, folders_1, title='manipulation_reach_duplo_simhash')
+
+prefix = 'manipulation_place_brick/'
+# folders_1 = ['drqv2',
+#              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05']
+folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+plot_several_folders(prefix, folders_1, title='manipulation_place_brick_simhash')
+
+# 3.28
+# prefix = 'manipulator_bring_ball/'
+# folders_1 = ['drqv2',
+#              'drqv2_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='manipulator_bring_ball_simhash')
+#
+# prefix = 'manipulation_place_brick/'
+# folders_1 = ['drqv2',
+#              'drqv2_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='manipulation_place_brick_simhash')
+
 # 3.21
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
-             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
-             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon')
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
-             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
-             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon_smoothness', smooth=True)
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
-             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon_smoothness', smooth=True)
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
-             'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon_smoothness', smooth=True)
-
-
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
+#              'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon')
+#
 # prefix = 'reacher_hard/'
-# folders_1 = ['drqv2_noisy_net_critic', 'drqv2_noisy_net_actor', 'drqv2_noisy_net_actor_critic']
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
+#              'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
+#              'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
+#              'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup_epsilon_smoothness', smooth=True)
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
+#              'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_epsilon_smoothness', smooth=True)
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat', 'drqv2_epsilon_zeta',
+#              'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_epsilon_smoothness', smooth=True)
+#
+#
+# # prefix = 'reacher_hard/'
+# # folders_1 = ['drqv2_noisy_net_critic', 'drqv2_noisy_net_actor', 'drqv2_noisy_net_actor_critic']
+# # plot_several_folders(prefix, folders_1, title='reacher_hard_noisy_net')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_noisy_net_actor_critic', 'drqv2_noisy_net_simhash_repeat',
+#              'drqv2_action_repeat_1_noisy_net_simhash_repeat']
 # plot_several_folders(prefix, folders_1, title='reacher_hard_noisy_net')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_noisy_net_actor_critic', 'drqv2_noisy_net_simhash_repeat',
-             'drqv2_action_repeat_1_noisy_net_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='reacher_hard_noisy_net')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2_noisy_net', 'drqv2_noisy_net_simhash_repeat',
-             'drqv2_action_repeat_1_noisy_net_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='acrobot_swingup_noisy_net')
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2_noisy_net', 'drqv2_noisy_net_simhash_repeat',
-             'drqv2_action_repeat_1_noisy_net_simhash_repeat']
-plot_several_folders(prefix, folders_1, title='quadruped_run_noisy_net')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2_noisy_net', 'drqv2_noisy_net_simhash_repeat',
+#              'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup_noisy_net')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2_noisy_net', 'drqv2_noisy_net_simhash_repeat',
+#              'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_noisy_net')
 
 
 

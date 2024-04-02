@@ -52,6 +52,9 @@ epsilon_schedule: 'linear(1.0,0.1,500000)'
 epsilon_zeta: false
 noisy_net: false
 repeat_type: 0
+repeat_coefficient: 1.0
+load_folder: None
+load_model: None
 
 ##### augmentation
 # image transformation
@@ -86,10 +89,13 @@ agent:
   seed: ${seed}
   ensemble: ${ensemble}
   repeat_type: ${repeat_type}
+  repeat_coefficient: ${repeat_coefficient}
   epsilon_greedy: ${epsilon_greedy}
   epsilon_schedule: ${epsilon_schedule}
   epsilon_zeta: ${epsilon_zeta}
   noisy_net: ${noisy_net}
+  load_folder: ${load_folder}
+  load_model: ${load_model}
 
 
 hydra:

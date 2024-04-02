@@ -205,7 +205,7 @@ class HashingBonusEvaluator(object):
     In Advances in Neural Information Processing Systems (NIPS)
     """
 
-    def __init__(self, dim_key=128, obs_processed_flat_dim=None, bucket_sizes=None):
+    def __init__(self, dim_key=128, obs_processed_flat_dim=None, bucket_sizes=None, repeat_coefficient=1.0):
         # Hashing function: SimHash
         if bucket_sizes is None:
             # Large prime numbers
@@ -222,6 +222,8 @@ class HashingBonusEvaluator(object):
         self.mods_list = np.asarray(mods_list).T
         self.tables = np.zeros((len(bucket_sizes), np.max(bucket_sizes)))
         self.projection_matrix = np.random.normal(size=(obs_processed_flat_dim, dim_key))
+
+        self.repeat_coefficient = repeat_coefficient
 
     def compute_keys(self, obss):
         binaries = np.sign(np.asarray(obss).dot(self.projection_matrix))
@@ -250,7 +252,7 @@ class HashingBonusEvaluator(object):
 
     def predict(self, obs):
         counts = self.query_hash(obs)
-        return 1. / np.maximum(1., np.sqrt(counts))
+        return self.repeat_coefficient / np.maximum(1., np.sqrt(counts))
 
 
 class RNDModel(nn.Module):

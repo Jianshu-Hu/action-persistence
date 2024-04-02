@@ -187,7 +187,10 @@ class Workspace:
                 if self.cfg.repeat_type == 1:
                     # hash count (state)
                     obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                    feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
+                    if self.cfg.load_folder != 'None':
+                        feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
+                    else:
+                        feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
                     if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     else:
@@ -197,7 +200,7 @@ class Workspace:
                         else:
                             action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                         repeat_prob_record_list.append(repeat_prob)
-                        if self.global_step % 5000 == 0:
+                        if self.global_step % 5000 == 1:
                             np.savez(str(self.work_dir) + '/repeat_prob.npz',
                                      repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.repeat_type == 2:
