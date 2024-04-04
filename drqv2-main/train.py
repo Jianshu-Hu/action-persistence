@@ -204,97 +204,73 @@ class Workspace:
                             np.savez(str(self.work_dir) + '/repeat_prob.npz',
                                      repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.repeat_type == 2:
-                    # hash count (state-action)
-                    action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    # hash count (state)
+                    # decay according to episode time steps
                     obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                    feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
-                    state_action_feature = np.concatenate((feature, np.expand_dims(action, axis=0)), axis=1)
-                    repeat_prob = self.agent.hash_count.predict(state_action_feature)
+                    if self.cfg.load_folder != 'None':
+                        feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
+                    else:
+                        feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
                     if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    elif np.random.uniform() < repeat_prob:
-                        action = last_action
-                elif self.cfg.repeat_type == 3:
-                    # RND
-                    if len(self.agent.initial_loss_list) < self.agent.initial_loss_max:
-                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     else:
-                        with torch.no_grad():
-                            obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                            predict_feature, target_feature = self.agent.rnd(obs_torch.float())
-                            loss = torch.nn.functional.mse_loss(predict_feature, target_feature)
-                            repeat_prob = loss.item()/\
-                                          (sum(self.agent.initial_loss_list)/len(self.agent.initial_loss_list))
-                            repeat_prob_record_list.append(repeat_prob)
+                        repeat_prob = self.agent.hash_count.predict(feature)
+                        repeat_prob = 0.99**episode_step*repeat_prob
                         if np.random.uniform() < repeat_prob:
                             action = last_action
                         else:
                             action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                        if self.global_step % 5000 == 0:
+                        repeat_prob_record_list.append(repeat_prob)
+                        if self.global_step % 5000 == 1:
+                            np.savez(str(self.work_dir) + '/repeat_prob.npz',
+                                     repeat_prob=np.array(repeat_prob_record_list))
+                elif self.cfg.repeat_type == 3:
+                    # hash count (state)
+                    # decay according to number of repeated actions in one episode
+                    obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                    if self.cfg.load_folder != 'None':
+                        feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
+                    else:
+                        feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
+                    if episode_step == 0:
+                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                        num_repeat_in_episode = 0
+                    else:
+                        repeat_prob = self.agent.hash_count.predict(feature)
+                        repeat_prob = 0.99**num_repeat_in_episode*repeat_prob
+                        if np.random.uniform() < repeat_prob:
+                            action = last_action
+                            num_repeat_in_episode += 1
+                        else:
+                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                        repeat_prob_record_list.append(repeat_prob)
+                        if self.global_step % 5000 == 1:
                             np.savez(str(self.work_dir) + '/repeat_prob.npz',
                                      repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.repeat_type == 4:
-                    # use the std/mean of ensemble critic for the repeat probability
-                    action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    coefficient = 25.0
-                    with torch.no_grad():
-                        obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                        action_torch = torch.as_tensor(action, device=self.device).unsqueeze(0)
-                        Q_ensemble = torch.stack(self.agent.critic(
-                            self.agent.encoder(obs_torch.float()), action_torch), dim=0).view(-1)
-                        Q_mean = torch.mean(Q_ensemble).item()
-                        if Q_mean < 0:
-                            repeat_prob = 1.0
+                    # hash count (state)
+                    # decay according to number of repeated actions in this repetition round
+                    obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                    if self.cfg.load_folder != 'None':
+                        feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
+                    else:
+                        feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
+                    if episode_step == 0:
+                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                        num_repeat_in_this_period = 0
+                    else:
+                        repeat_prob = self.agent.hash_count.predict(feature)
+                        repeat_prob = 0.9**num_repeat_in_this_period*repeat_prob
+                        if np.random.uniform() < repeat_prob:
+                            action = last_action
+                            num_repeat_in_this_period += 1
                         else:
-                            repeat_prob = coefficient*torch.std(Q_ensemble).item()/Q_mean
+                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                            num_repeat_in_this_period = 0
                         repeat_prob_record_list.append(repeat_prob)
-                    if episode_step == 0:
-                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    elif np.random.uniform() < repeat_prob:
-                        action = last_action
-                    if self.global_step % 5000 == 0:
-                        np.savez(str(self.work_dir) + '/repeat_prob.npz',
-                                 repeat_prob=np.array(repeat_prob_record_list))
-                elif self.cfg.repeat_type == 5:
-                    # use the std of sampled Q for the repeat probability
-                    action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    number_samples = 10
-                    coefficient = 0.1
-                    noise_coefficient = 0.2
-                    # norm_dist_action = torch.distributions.normal.Normal(torch.as_tensor(action, device=self.device),
-                    #                             variance_coefficient*torch.ones(action.shape[0], device=self.device))
-                    # action_list = []
-                    # for i in range(number_samples):
-                    #     sampled_action = norm_dist_action.sample()
-                    #     action_list.append(sampled_action)
-                    # action_torch = torch.clip(torch.stack(action_list), -1, 1)
-
-                    action_torch = torch.as_tensor(action, device=self.device).unsqueeze(0)
-                    noise = noise_coefficient*(torch.rand((number_samples, action.shape[0]))*2-1.0).to(self.device)
-                    noisy_action = action_torch.repeat(number_samples, 1)+noise
-                    action_torch = torch.concat((noisy_action, action_torch), 0)
-                    action_torch = torch.clip(action_torch, -1, 1)
-
-                    # action_torch = torch.zeros([number_samples, self.cfg.agent.action_shape[0]],
-                    #                            dtype=torch.float32, device=self.device)
-                    # action_torch.uniform_(-1.0, 1.0)
-                    with torch.no_grad():
-                        obs_torch = (torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0))
-                        obs_feature = (self.agent.encoder(obs_torch.float())).repeat(number_samples+1, 1)
-                        Q_list = self.agent.critic(obs_feature, action_torch)
-                        Q_samples = torch.min(torch.stack(Q_list), dim=0)[0]
-                        if torch.mean(Q_samples) < 0:
-                            repeat_prob = 1.0
-                        else:
-                            repeat_prob = coefficient/(torch.mean(Q_samples)*torch.std(Q_samples))
-                            repeat_prob_record_list.append(repeat_prob.item())
-                    if episode_step == 0:
-                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    elif np.random.uniform() < repeat_prob:
-                        action = last_action
-                    if self.global_step % 5000 == 0:
-                        np.savez(str(self.work_dir) + '/repeat_prob.npz',
-                                 repeat_prob=np.array(repeat_prob_record_list))
+                        if self.global_step % 5000 == 1:
+                            np.savez(str(self.work_dir) + '/repeat_prob.npz',
+                                     repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.epsilon_greedy and self.cfg.epsilon_zeta:
                     if episode_step == 0:
                         action = self.agent.act(time_step.observation,

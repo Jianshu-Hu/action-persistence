@@ -160,19 +160,9 @@ class DrQV2SACAgent:
 
         # repeat
         self.repeat_type = repeat_type
-        if repeat_type == 1:
+        if repeat_type > 0:
             self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
                                                           obs_processed_flat_dim=feature_dim)
-        elif repeat_type == 2:
-            self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
-                                                          obs_processed_flat_dim=feature_dim + action_shape[0])
-        elif repeat_type == 3:
-            self.rnd = utils.RNDModel(obs_shape, feature_dim).to(device)
-            self.rnd_opt = torch.optim.Adam(list(self.rnd.predictor_encoder.parameters())+
-                                              list(self.rnd.predictor_trunk.parameters()), lr=0.1*lr)
-            self.initial_loss_max = 20
-            self.initial_loss_list = []
-            self.all_loss = []
 
         self.test_model = test_model
 
@@ -305,31 +295,11 @@ class DrQV2SACAgent:
         obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward =\
             utils.to_torch(batch, self.device)
 
-        if self.repeat_type == 1:
+        if self.repeat_type > 0:
             # update hash count
             with torch.no_grad():
                 feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
                 self.hash_count.fit_before_process_samples(feature)
-        elif self.repeat_type == 2:
-            # update hash count
-            with torch.no_grad():
-                feature = self.critic.trunk(self.encoder(obs.float()))
-                state_action_feature = torch.cat((feature, action), 1)
-                self.hash_count.fit_before_process_samples(state_action_feature.cpu().numpy())
-        elif self.repeat_type == 3:
-            # update running statistics
-            self.rnd.update_running_stats(obs.float())
-            # update rnd
-            predict_feature, target_feature = self.rnd(obs.float())
-            loss = F.mse_loss(predict_feature, target_feature)
-            self.rnd_opt.zero_grad(set_to_none=True)
-            loss.backward()
-            self.rnd_opt.step()
-            self.all_loss.append(loss.item())
-            if len(self.initial_loss_list) < self.initial_loss_max:
-                self.initial_loss_list.append(loss.item())
-            if step % 5000 == 0:
-                np.savez(self.work_dir + '/all_rnd_loss.npz', loss=np.array(self.all_loss))
 
         # augment
         obs_all = []

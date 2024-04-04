@@ -94,6 +94,11 @@ folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
 plot_several_folders(prefix, folders_1, title='manipulation_reach_site_simhash')
 
 prefix = 'manipulation_reach_site/'
+folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05', 'drqv2_simhash_repeat_decay_1', 'drqv2_simhash_repeat_decay_2',
+             'drqv2_simhash_repeat_decay_3']
+plot_several_folders(prefix, folders_1, title='manipulation_reach_site_repeat_decay')
+
+prefix = 'manipulation_reach_site/'
 folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
              'drqv2_epsilon_greedy_simhash_repeat_c05',
              'drqv2_repeat_1_epsilon_greedy_simhash_repeat_c05']
@@ -108,6 +113,10 @@ prefix = 'manipulation_place_brick/'
 #              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05']
 folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
 plot_several_folders(prefix, folders_1, title='manipulation_place_brick_simhash')
+
+prefix = 'manipulation_place_cradle/'
+folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+plot_several_folders(prefix, folders_1, title='manipulation_place_cradle_simhash')
 
 # 3.28
 # prefix = 'manipulator_bring_ball/'
