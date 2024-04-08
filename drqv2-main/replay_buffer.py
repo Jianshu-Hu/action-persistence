@@ -205,7 +205,7 @@ class IterableReplayBuffer(IterableDataset):
 
 class AbstractReplayBuffer(abc.ABC):
    @abc.abstractmethod
-   def add(self, time_step):
+   def add(self, time_step, repeat):
        pass
 
    @abc.abstractmethod

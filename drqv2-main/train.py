@@ -122,6 +122,51 @@ class Workspace:
 
         return total_reward / episode
 
+    def eval_repeat(self, repeat):
+        step, episode, total_reward = 0, 0, 0
+        eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
+
+        total_smoothness = 0
+        while eval_until_episode(episode):
+            last_action = None
+            time_step = self.eval_env.reset()
+            repeat_num = repeat
+            self.video_recorder.init(self.eval_env, enabled=(episode == 0))
+            while not time_step.last():
+                with torch.no_grad(), utils.eval_mode(self.agent):
+                    action = self.agent.act(time_step.observation,
+                                            self.global_step,
+                                            eval_mode=True)
+
+                if last_action is None:
+                    last_action = action
+                else:
+                    if repeat_num == 0:
+                        repeat_num = repeat
+                    else:
+                        action = last_action
+                        repeat_num -= 1
+                    smoothness = np.mean(np.square(action-last_action))
+                    total_smoothness += smoothness
+                    last_action = action
+
+                time_step = self.eval_env.step(action)
+                self.video_recorder.record(self.eval_env)
+                total_reward += time_step.reward
+                step += 1
+
+            episode += 1
+            self.video_recorder.save(f'{self.global_frame}.mp4')
+
+        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
+            log('episode_reward', total_reward / episode)
+            log('episode_length', step * self.cfg.action_repeat / episode)
+            log('episode', self.global_episode)
+            log('step', self.global_step)
+            log('episode_smoothness', total_smoothness / episode)
+
+        return total_reward / episode
+
     def train(self):
         # predicates
         train_until_step = utils.Until(self.cfg.num_train_frames,
@@ -134,11 +179,13 @@ class Workspace:
                                       self.cfg.action_repeat)
 
         episode_step, episode_reward = 0, 0
+        repeat_prob_record_list = []
+        total_num_repeat = 0
+        repeat_index = 0
         time_step = self.train_env.reset()
-        self.replay_buffer.add(time_step)
+        self.replay_buffer.add(time_step, repeat_index)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
-        repeat_prob_record_list = []
         while train_until_step(self.global_step):
             if time_step.last():
                 self._global_episode += 1
@@ -160,7 +207,8 @@ class Workspace:
 
                 # reset env
                 time_step = self.train_env.reset()
-                self.replay_buffer.add(time_step)
+                repeat_index = 0
+                self.replay_buffer.add(time_step, repeat_index)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
                 if self.cfg.save_snapshot:
@@ -173,6 +221,7 @@ class Workspace:
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 evaluated_reward = self.eval()
+                # evaluated_reward = self.eval_repeat(3)
 
             # try to save the model
             if self.cfg.save_model:
@@ -205,72 +254,41 @@ class Workspace:
                                      repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.repeat_type == 2:
                     # hash count (state)
-                    # decay according to episode time steps
+                    # count for using policies with different frequencies
                     obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
                     if self.cfg.load_folder != 'None':
                         feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
                     else:
                         feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
-                    if episode_step == 0:
-                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    else:
-                        repeat_prob = self.agent.hash_count.predict(feature)
-                        repeat_prob = 0.99**episode_step*repeat_prob
-                        if np.random.uniform() < repeat_prob:
-                            action = last_action
+                    action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    count = self.agent.hash_count.predict(feature)
+                    if episode_step == 0 or repeat_num == 0:
+                        # repeat_num = 3
+                        # total_num_repeat += repeat_num+1
+                        # repeat_index = 1
+
+                        # if count >= 30:
+                        #     repeat_num = 0
+                        # elif count >= 15:
+                        #     repeat_num = 1
+                        #     total_num_repeat += 2
+                        # else:
+                        #     repeat_num = 3
+                        #     total_num_repeat += 4
+                        if count >= 20:
+                            repeat_num = 0
                         else:
-                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                        repeat_prob_record_list.append(repeat_prob)
-                        if self.global_step % 5000 == 1:
-                            np.savez(str(self.work_dir) + '/repeat_prob.npz',
-                                     repeat_prob=np.array(repeat_prob_record_list))
-                elif self.cfg.repeat_type == 3:
-                    # hash count (state)
-                    # decay according to number of repeated actions in one episode
-                    obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                    if self.cfg.load_folder != 'None':
-                        feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
+                            repeat_num = 1
+                            total_num_repeat += repeat_num+1
+                        repeat_index = 1
                     else:
-                        feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
-                    if episode_step == 0:
-                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                        num_repeat_in_episode = 0
-                    else:
-                        repeat_prob = self.agent.hash_count.predict(feature)
-                        repeat_prob = 0.99**num_repeat_in_episode*repeat_prob
-                        if np.random.uniform() < repeat_prob:
-                            action = last_action
-                            num_repeat_in_episode += 1
-                        else:
-                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                        repeat_prob_record_list.append(repeat_prob)
-                        if self.global_step % 5000 == 1:
-                            np.savez(str(self.work_dir) + '/repeat_prob.npz',
-                                     repeat_prob=np.array(repeat_prob_record_list))
-                elif self.cfg.repeat_type == 4:
-                    # hash count (state)
-                    # decay according to number of repeated actions in this repetition round
-                    obs_torch = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
-                    if self.cfg.load_folder != 'None':
-                        feature = (self.agent.critic_repeat.trunk(self.agent.encoder_repeat(obs_torch))).cpu().numpy()
-                    else:
-                        feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
-                    if episode_step == 0:
-                        action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                        num_repeat_in_this_period = 0
-                    else:
-                        repeat_prob = self.agent.hash_count.predict(feature)
-                        repeat_prob = 0.9**num_repeat_in_this_period*repeat_prob
-                        if np.random.uniform() < repeat_prob:
-                            action = last_action
-                            num_repeat_in_this_period += 1
-                        else:
-                            action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                            num_repeat_in_this_period = 0
-                        repeat_prob_record_list.append(repeat_prob)
-                        if self.global_step % 5000 == 1:
-                            np.savez(str(self.work_dir) + '/repeat_prob.npz',
-                                     repeat_prob=np.array(repeat_prob_record_list))
+                        action = last_action
+                        repeat_num -= 1
+                        repeat_index += 1
+                    if self.global_step % 5000 == 1:
+                        repeat_prob_record_list.append(total_num_repeat / self.global_step)
+                        np.savez(str(self.work_dir) + '/repeat_prob.npz',
+                                 repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.epsilon_greedy and self.cfg.epsilon_zeta:
                     if episode_step == 0:
                         action = self.agent.act(time_step.observation,
@@ -295,7 +313,7 @@ class Workspace:
             time_step = self.train_env.step(action)
             last_action = copy.deepcopy(action)
             episode_reward += time_step.reward
-            self.replay_buffer.add(time_step)
+            self.replay_buffer.add(time_step, repeat_index)
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1

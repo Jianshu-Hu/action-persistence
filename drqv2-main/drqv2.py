@@ -429,11 +429,35 @@ class DrQV2Agent:
         if step % self.update_every_steps != 0:
             return metrics
 
-        batch = next(replay_iter)
-        obs, action, reward, discount, next_obs, one_step_next_obs, one_step_reward =\
-            utils.to_torch(batch, self.device)
-
         if self.repeat_type > 0:
+            batch = next(replay_iter)
+            obs, action, reward, discount, repeat, next_obs, one_step_next_obs, one_step_reward = \
+                utils.to_torch(batch, self.device)
+            batch_size = obs.size(0)
+            mask = (repeat == 1)
+            obs = obs[mask]
+            action = action[mask]
+            reward = reward[mask]
+            discount = discount[mask]
+            next_obs = next_obs[mask]
+            num_sample = obs.size(0)
+            while num_sample < batch_size:
+                new_batch = next(replay_iter)
+                new_obs, new_action, new_reward, new_discount, new_repeat, new_next_obs,\
+                new_one_step_next_obs, new_one_step_reward = \
+                    utils.to_torch(new_batch, self.device)
+                mask = (new_repeat == 1)
+                obs = torch.vstack((obs, new_obs[mask]))
+                action = torch.vstack((action, new_action[mask]))
+                reward = torch.vstack((reward, new_reward[mask]))
+                discount = torch.vstack((discount, new_discount[mask]))
+                next_obs = torch.vstack((next_obs, new_next_obs[mask]))
+                num_sample = obs.size(0)
+            obs = obs[:batch_size]
+            action = action[:batch_size]
+            reward = reward[:batch_size]
+            discount = discount[:batch_size]
+            next_obs = next_obs[:batch_size]
             # update hash count
             with torch.no_grad():
                 if self.load_folder != 'None':
@@ -441,6 +465,10 @@ class DrQV2Agent:
                 else:
                     feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
                 self.hash_count.fit_before_process_samples(feature)
+        else:
+            batch = next(replay_iter)
+            obs, action, reward, discount, repeat, next_obs, one_step_next_obs, one_step_reward = \
+                utils.to_torch(batch, self.device)
 
         # augment
         obs_all = []

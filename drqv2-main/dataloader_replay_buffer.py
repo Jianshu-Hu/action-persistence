@@ -22,7 +22,7 @@ class DataloaderReplayBuffer(AbstractReplayBuffer):
             self._replay_iter = iter(self.replay_loader)
         return self._replay_iter
 
-    def add(self, time_step):
+    def add(self, time_step, repeat):
         self.replay_storage.add(time_step)
 
     def __next__(self,):

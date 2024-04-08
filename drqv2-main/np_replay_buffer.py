@@ -30,11 +30,13 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         self.act = np.zeros([self.buffer_size, *self.act_shape], dtype=np.float32)
         self.rew = np.zeros([self.buffer_size], dtype=np.float32)
         self.dis = np.zeros([self.buffer_size], dtype=np.float32)
+
+        self.repeat = np.zeros([self.buffer_size], dtype=np.float32)
         # which timesteps can be validly sampled (Not within nstep from end of
         # an episode or last recorded observation)
         self.valid = np.zeros([self.buffer_size], dtype=np.bool_)
 
-    def add_data_point(self, time_step):
+    def add_data_point(self, time_step, repeat):
         first = time_step.first()
         latest_obs = time_step.observation[-self.ims_channels:]
         if first:
@@ -61,6 +63,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
             np.copyto(self.obs[self.index], latest_obs)
             np.copyto(self.act[self.index], time_step.action)
             self.rew[self.index] = time_step.reward
+            self.repeat[self.index] = repeat
             self.dis[self.index] = time_step.discount
             self.valid[(self.index + self.frame_stack) % self.buffer_size] = False
             if self.traj_index >= self.nstep:
@@ -71,10 +74,10 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
                 self.index = 0
                 self.full = True
 
-    def add(self, time_step):
+    def add(self, time_step, repeat):
         if self.index == -1:
             self._initial_setup(time_step)
-        self.add_data_point(time_step)
+        self.add_data_point(time_step, repeat)
 
     def __next__(self, ):
         # sample only valid indices
@@ -99,6 +102,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         nobs = np.reshape(self.obs[nobs_gather_ranges], [n_samples, *self.obs_shape])
 
         act = self.act[indices]
+        repeat = self.repeat[indices]
         dis = np.expand_dims(self.next_dis * self.dis[nobs_gather_ranges[:, -1]], axis=-1)
 
         # one step obs
@@ -107,7 +111,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         # one step reward
         one_step_next_reward = self.rew[indices]
 
-        ret = (obs, act, rew, dis, nobs, one_step_next_obs, one_step_next_reward)
+        ret = (obs, act, rew, dis, repeat, nobs, one_step_next_obs, one_step_next_reward)
         return ret
 
     def __len__(self):

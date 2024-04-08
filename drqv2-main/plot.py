@@ -84,39 +84,82 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
     else:
         plt.savefig('saved_figs/'+title)
 
+# 4.11
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
+plot_several_folders(prefix, folders_1, title='reacher_hard_frequency')
+
+prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
+#              'drqv2_repeat_2_train_half', 'drqv2_repeat_4_train_less', 'drqv2_repeat_8_train_less',
+#              'drqv2_repeat_2_train_same_batch_size', 'drqv2_repeat_4_train_same_batch_size',
+#              'drqv2_repeat_8_train_same_batch_size']
+folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
+             'drqv2_repeat_2_train_same_batch_size', 'drqv2_repeat_4_train_same_batch_size',
+             'drqv2_repeat_8_train_same_batch_size']
+plot_several_folders(prefix, folders_1, title='reacher_hard_train_lower_freq')
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
+             'drqv2_repeat_2_train_same_batch_size',
+             'drqv2_count_20_repeat_2_train_same_batch_size']
+plot_several_folders(prefix, folders_1, title='reacher_hard_count')
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_frequency')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
+plot_several_folders(prefix, folders_1, title='quadruped_run_frequency')
+
+# prefix = 'manipulation_reach_site/'
+# folders_1 = ['drqv2', 'drqv2_count_20_from_2_to_1', 'drqv2_count_10_from_2_to_1', 'drqv2_count_30_from_2_to_1',
+#              'drqv2_count_40_from_2_to_1', 'drqv2_fix_repeat_2']
+# plot_several_folders(prefix, folders_1, title='manipulation_reach_site_frequency')
+
+prefix = 'manipulation_reach_site/'
+folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05', 'drqv2_count_30_from_2_to_1', 'drqv2_fix_repeat_2']
+plot_several_folders(prefix, folders_1, title='manipulation_reach_site_frequency')
+
+prefix = 'manipulation_reach_site/'
+folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_train_same_batch_size',
+             'drqv2_repeat_4_train_same_batch_size']
+plot_several_folders(prefix, folders_1, title='manipulation_reach_site_train_low_frequency')
+
 
 # 4.4
-prefix = 'manipulation_reach_site/'
-# folders_1 = ['drqv2',
-#              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05', 'drqv2_repeat_1_simhash_repeat_c05',
-#              'drqv2_simhash_repeat_pow07']
-folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
-plot_several_folders(prefix, folders_1, title='manipulation_reach_site_simhash')
-
-prefix = 'manipulation_reach_site/'
-folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05', 'drqv2_simhash_repeat_decay_1', 'drqv2_simhash_repeat_decay_2',
-             'drqv2_simhash_repeat_decay_3']
-plot_several_folders(prefix, folders_1, title='manipulation_reach_site_repeat_decay')
-
-prefix = 'manipulation_reach_site/'
-folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
-             'drqv2_epsilon_greedy_simhash_repeat_c05',
-             'drqv2_repeat_1_epsilon_greedy_simhash_repeat_c05']
-plot_several_folders(prefix, folders_1, title='manipulation_reach_site_epsilon_greedy')
-
-prefix = 'manipulation_reach_duplo/'
-folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
-plot_several_folders(prefix, folders_1, title='manipulation_reach_duplo_simhash')
-
-prefix = 'manipulation_place_brick/'
-# folders_1 = ['drqv2',
-#              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05']
-folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
-plot_several_folders(prefix, folders_1, title='manipulation_place_brick_simhash')
-
-prefix = 'manipulation_place_cradle/'
-folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
-plot_several_folders(prefix, folders_1, title='manipulation_place_cradle_simhash')
+# prefix = 'manipulation_reach_site/'
+# # folders_1 = ['drqv2',
+# #              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05', 'drqv2_repeat_1_simhash_repeat_c05',
+# #              'drqv2_simhash_repeat_pow07']
+# folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+# plot_several_folders(prefix, folders_1, title='manipulation_reach_site_simhash')
+#
+# prefix = 'manipulation_reach_site/'
+# folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05', 'drqv2_simhash_repeat_decay_1', 'drqv2_simhash_repeat_decay_2',
+#              'drqv2_simhash_repeat_decay_3']
+# plot_several_folders(prefix, folders_1, title='manipulation_reach_site_repeat_decay')
+#
+# prefix = 'manipulation_reach_site/'
+# folders_1 = ['drqv2_epsilon_greedy', 'drqv2_epsilon_greedy_simhash_repeat',
+#              'drqv2_epsilon_greedy_simhash_repeat_c05',
+#              'drqv2_repeat_1_epsilon_greedy_simhash_repeat_c05']
+# plot_several_folders(prefix, folders_1, title='manipulation_reach_site_epsilon_greedy')
+#
+# prefix = 'manipulation_reach_duplo/'
+# folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+# plot_several_folders(prefix, folders_1, title='manipulation_reach_duplo_simhash')
+#
+# prefix = 'manipulation_place_brick/'
+# # folders_1 = ['drqv2',
+# #              'drqv2_simhash_repeat', 'drqv2_simhash_repeat_c05']
+# folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+# plot_several_folders(prefix, folders_1, title='manipulation_place_brick_simhash')
+#
+# prefix = 'manipulation_place_cradle/'
+# folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05']
+# plot_several_folders(prefix, folders_1, title='manipulation_place_cradle_simhash')
 
 # 3.28
 # prefix = 'manipulator_bring_ball/'
