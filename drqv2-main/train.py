@@ -85,20 +85,35 @@ class Workspace:
     def global_frame(self):
         return self.global_step * self.cfg.action_repeat
 
-    def eval(self):
+    def eval(self, save_cos=False):
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
 
         total_smoothness = 0
+        cos_all = None
+        episode_reward_list = []
+        # cos = torch.nn.CosineSimilarity(dim=1)
+        save_dir = str(self.work_dir) + '/saved_cossim'
         while eval_until_episode(episode):
+            episode_reward = 0
+            episode_step = 0
             last_action = None
             time_step = self.eval_env.reset()
+            if save_cos:
+                with torch.no_grad():
+                    obs = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                    feature = self.agent.critic.trunk(self.agent.encoder(obs))
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
             while not time_step.last():
                 with torch.no_grad(), utils.eval_mode(self.agent):
-                    action = self.agent.act(time_step.observation,
-                                            self.global_step,
-                                            eval_mode=True)
+                    if self.cfg.pos_emb:
+                        action = self.agent.act(time_step.observation,
+                                                self.global_step,
+                                                eval_mode=True, pos=episode_step)
+                    else:
+                        action = self.agent.act(time_step.observation,
+                                                self.global_step,
+                                                eval_mode=True)
                 if last_action is None:
                     last_action = action
                 else:
@@ -106,9 +121,29 @@ class Workspace:
                     total_smoothness += smoothness
                     last_action = action
                 time_step = self.eval_env.step(action)
+                if save_cos:
+                    with torch.no_grad():
+                        obs = torch.as_tensor(time_step.observation, device=self.device).unsqueeze(0)
+                        new_feature = self.agent.critic.trunk(self.agent.encoder(obs))
+                        feature = torch.vstack((feature, new_feature))
                 self.video_recorder.record(self.eval_env)
                 total_reward += time_step.reward
+                episode_reward += time_step.reward
                 step += 1
+                episode_step += 1
+            if save_cos:
+                feature = torch.nn.functional.normalize(feature, dim=1)
+                cosine_sim = torch.matmul(feature, feature.transpose(0, 1))
+                if cos_all is None:
+                    cos_all = cosine_sim.unsqueeze(0).cpu().numpy()
+                else:
+                    cos_all = np.vstack((cos_all, cosine_sim.unsqueeze(0).cpu().numpy()))
+                episode_reward_list.append(episode_reward)
+
+                if not os.path.exists(save_dir):
+                    os.mkdir(save_dir)
+                np.savez(save_dir+'/step_'+str(self.global_step)+'_cossim.npz', cossim=cos_all,
+                         episode_reward=np.array(episode_reward_list))
 
             episode += 1
             self.video_recorder.save(f'{self.global_frame}.mp4')
@@ -135,8 +170,8 @@ class Workspace:
             while not time_step.last():
                 with torch.no_grad(), utils.eval_mode(self.agent):
                     action = self.agent.act(time_step.observation,
-                                            self.global_step,
-                                            eval_mode=True)
+                                                self.global_step,
+                                                eval_mode=True)
 
                 if last_action is None:
                     last_action = action
@@ -298,6 +333,10 @@ class Workspace:
                         action = self.agent.act(time_step.observation,
                                                 self.global_step,
                                                 eval_mode=False, last_action=last_action)
+                elif self.cfg.pos_emb:
+                    action = self.agent.act(time_step.observation,
+                                            self.global_step,
+                                            eval_mode=False, pos=episode_step)
                 else:
                     action = self.agent.act(time_step.observation,
                                             self.global_step,

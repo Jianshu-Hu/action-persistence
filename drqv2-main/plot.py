@@ -86,6 +86,10 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
 
 # 4.11
 prefix = 'reacher_hard/'
+folders_1 = ['drqv2', 'drqv2_temporal_cluster']
+plot_several_folders(prefix, folders_1, title='reacher_hard_temp')
+
+prefix = 'reacher_hard/'
 folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
 plot_several_folders(prefix, folders_1, title='reacher_hard_frequency')
 

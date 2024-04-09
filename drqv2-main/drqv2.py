@@ -15,6 +15,8 @@ import torchvision
 import data_augmentation
 import utils
 
+from sklearn.cluster import KMeans
+
 
 class Encoder(nn.Module):
     def __init__(self, obs_shape):
@@ -38,8 +40,28 @@ class Encoder(nn.Module):
         return h
 
 
+class PositionalEmbedding(nn.Module):
+    def __init__(self, d_model, device, max_len=500):
+        super().__init__()
+        # Compute the positional encodings once in log space.
+        self.d_model = d_model
+        self.max_len = max_len
+        self.position = torch.arange(0, max_len).unsqueeze(1).to(device)
+        self.div_term = torch.exp(torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model)).to(device)
+        self.div_term.requires_grad = True
+
+    def forward(self, position):
+        position = position.reshape(-1,)
+        pe = torch.zeros(self.max_len, self.d_model).to(position.device)
+        pe[:, 0::2] = torch.sin(self.position * self.div_term)
+        pe[:, 1::2] = torch.cos(self.position * self.div_term)
+        x = pe[position, :]
+        return x
+
+
 class Actor(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, noisy_net=False):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, device, noisy_net=False, pos_emb=False,
+                 pos_emb_dim=0):
         super().__init__()
 
         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
@@ -50,9 +72,16 @@ class Actor(nn.Module):
         else:
             linear = nn.Linear
         self.linear = [linear(hidden_dim, hidden_dim), linear(hidden_dim, action_shape[0])]
-        layers = [nn.Linear(feature_dim, hidden_dim),
-                  nn.ReLU(inplace=True), self.linear[0],
-                  nn.ReLU(inplace=True), self.linear[1]]
+        self.pos_emb = pos_emb
+        self.pos_emb_dim = pos_emb_dim
+        if pos_emb:
+            layers = [nn.Linear(feature_dim+pos_emb_dim, hidden_dim),
+                      nn.ReLU(inplace=True), self.linear[0],
+                      nn.ReLU(inplace=True), self.linear[1]]
+        else:
+            layers = [nn.Linear(feature_dim, hidden_dim),
+                      nn.ReLU(inplace=True), self.linear[0],
+                      nn.ReLU(inplace=True), self.linear[1]]
         # self.linear = [linear(feature_dim, hidden_dim),
         #                linear(hidden_dim, hidden_dim), linear(hidden_dim, action_shape[0])]
         # layers = [self.linear[0],
@@ -75,16 +104,20 @@ class Actor(nn.Module):
         for module in self.linear:
             module.reset_noise()
 
-    def forward_mu_std(self, obs, std):
+    def forward_mu_std(self, obs, std, pos=None):
         h = self.trunk(obs)
-
+        if self.pos_emb:
+            h = torch.cat((h, pos), dim=1)
         mu = self.policy(h)
         mu = torch.tanh(mu)
         std = torch.ones_like(mu) * std
         return mu, std
 
-    def forward(self, obs, std):
+    def forward(self, obs, std, pos=None):
         h = self.trunk(obs)
+
+        if self.pos_emb:
+            h = torch.cat((h, pos), dim=1)
 
         mu = self.policy(h)
         mu = torch.tanh(mu)
@@ -95,11 +128,16 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, ensemble, noisy_net=False):
+    def __init__(self, repr_dim, action_shape, feature_dim, hidden_dim, device, ensemble, noisy_net=False,
+                 pos_emb=False, pos_emb_dim=0):
         super().__init__()
 
         self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
+
+        self.pos_emb = pos_emb
+        self.pos_emb_dim = pos_emb_dim
+
         self.num_Qs = ensemble
         self.Q_list = nn.ModuleList()
         self.linear_list = []
@@ -110,9 +148,14 @@ class Critic(nn.Module):
         for i in range(self.num_Qs):
             self.linear_list.append([linear(hidden_dim, hidden_dim),
                                     linear(hidden_dim, 1)])
-            layers = [nn.Linear(feature_dim + action_shape[0], hidden_dim),
-                nn.ReLU(inplace=True), self.linear_list[i][0],
-                nn.ReLU(inplace=True), self.linear_list[i][1]]
+            if self.pos_emb:
+                layers = [nn.Linear(feature_dim + action_shape[0] + self.pos_emb_dim, hidden_dim),
+                    nn.ReLU(inplace=True), self.linear_list[i][0],
+                    nn.ReLU(inplace=True), self.linear_list[i][1]]
+            else:
+                layers = [nn.Linear(feature_dim + action_shape[0], hidden_dim),
+                    nn.ReLU(inplace=True), self.linear_list[i][0],
+                    nn.ReLU(inplace=True), self.linear_list[i][1]]
             # self.linear_list.append([linear(feature_dim + action_shape[0], hidden_dim),
             #                         linear(hidden_dim, hidden_dim),
             #                         linear(hidden_dim, 1)])
@@ -132,8 +175,12 @@ class Critic(nn.Module):
             for module in self.linear_list[i]:
                 module.reset_noise()
 
-    def forward(self, obs, action):
+    def forward(self, obs, action, pos=None):
         h = self.trunk(obs)
+
+        if self.pos_emb:
+            h = torch.cat((h, pos), dim=1)
+
         h_action = torch.cat([h, action], dim=-1)
         q_list = []
         for i in range(self.num_Qs):
@@ -190,7 +237,8 @@ class DrQV2Agent:
                  update_every_steps, stddev_schedule, stddev_clip, use_tb,
                  aug_K, aug_type, train_dynamics_model, task_name, test_model, seed, ensemble, repeat_type,
                  repeat_coefficient,
-                 epsilon_greedy, epsilon_schedule, epsilon_zeta, noisy_net, load_folder, load_model):
+                 epsilon_greedy, epsilon_schedule, epsilon_zeta, noisy_net, load_folder, load_model,
+                 temp_cluster, pos_emb):
         self.device = device
         self.critic_target_tau = critic_target_tau
         self.update_every_steps = update_every_steps
@@ -205,23 +253,31 @@ class DrQV2Agent:
         self.lr = lr
         self.noisy_net = noisy_net
 
+        self.pos_emb = pos_emb
+        self.pos_emb_dim = 10
+        self.pe = PositionalEmbedding(d_model=self.pos_emb_dim, device=device)
+
         # models
         self.obs_shape = obs_shape
         self.ensemble = ensemble
         self.encoder = Encoder(obs_shape).to(device)
         self.actor = Actor(self.encoder.repr_dim, action_shape, feature_dim,
-                           hidden_dim, self.noisy_net).to(device)
+                           hidden_dim, device, self.noisy_net, self.pos_emb, self.pos_emb_dim).to(device)
 
         self.critic = Critic(self.encoder.repr_dim, action_shape, feature_dim,
-                             hidden_dim, self.ensemble, self.noisy_net).to(device)
+                             hidden_dim, device, self.ensemble, self.noisy_net, self.pos_emb,
+                             self.pos_emb_dim).to(device)
         self.critic_target = Critic(self.encoder.repr_dim, action_shape,
-                                    feature_dim, hidden_dim, self.ensemble, self.noisy_net).to(device)
+                                    feature_dim, hidden_dim, device, self.ensemble, self.noisy_net, self.pos_emb,
+                                    self.pos_emb_dim).to(device)
         self.critic_target.load_state_dict(self.critic.state_dict())
+
 
         # optimizers
         self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
+        self.pos_emb_opt = torch.optim.Adam([self.pe.div_term], lr=lr)
 
         # data augmentation
         self.aug = data_augmentation.DataAug(da_type=aug_type)
@@ -254,6 +310,10 @@ class DrQV2Agent:
             self.hash_count = utils.HashingBonusEvaluator(dim_key=128,
                                                           obs_processed_flat_dim=feature_dim,
                                                           repeat_coefficient=repeat_coefficient)
+        self.temp_cluster = temp_cluster
+        self.cosine_sim = torch.nn.CosineSimilarity(dim=1)
+        self.kmeans = KMeans(n_clusters=2,  init=np.array([[0.0], [1.0]]))
+
 
         # epsilon greedy
         self.epsilon_greedy = epsilon_greedy
@@ -278,11 +338,15 @@ class DrQV2Agent:
             self.dynamics_model.train(training)
             self.reward_model.train(training)
 
-    def act(self, obs, step, eval_mode, last_action=None):
+    def act(self, obs, step, eval_mode, last_action=None, pos=None):
         obs = torch.as_tensor(obs, device=self.device)
         obs = self.encoder(obs.unsqueeze(0))
         stddev = utils.schedule(self.stddev_schedule, step)
-        dist = self.actor(obs, stddev)
+        if self.pos_emb:
+            position = torch.as_tensor([pos], device=self.device).unsqueeze(0)
+            dist = self.actor(obs, stddev, pos=self.pe(position))
+        else:
+            dist = self.actor(obs, stddev)
         if eval_mode or self.test_model:
             action = dist.mean
         elif self.epsilon_greedy:
@@ -315,16 +379,22 @@ class DrQV2Agent:
                 action.uniform_(-1.0, 1.0)
         return action.cpu().numpy()[0]
 
-    def update_critic(self, obs, action, reward, discount, next_obs, step):
+    def update_critic(self, obs, action, reward, discount, next_obs, step, pos_feature):
         metrics = dict()
 
         target_all = []
         with torch.no_grad():
             for k in range(self.aug_K):
                 stddev = utils.schedule(self.stddev_schedule, step)
-                dist = self.actor(next_obs[k], stddev)
+                if self.pos_emb:
+                    dist = self.actor(next_obs[k], stddev, pos=pos_feature)
+                else:
+                    dist = self.actor(next_obs[k], stddev)
                 next_action = dist.sample(clip=self.stddev_clip)
-                target_Q_list = self.critic_target(next_obs[k], next_action)
+                if self.pos_emb:
+                    target_Q_list = self.critic_target(next_obs[k], next_action, pos=pos_feature)
+                else:
+                    target_Q_list = self.critic_target(next_obs[k], next_action)
                 two_Qs_index = np.random.choice(np.arange(self.critic.num_Qs), size=2, replace=False)
                 target_V = torch.min(target_Q_list[two_Qs_index[0]], target_Q_list[two_Qs_index[1]])
                 target_Q = reward + (discount * target_V)
@@ -333,7 +403,10 @@ class DrQV2Agent:
 
         critic_loss_all = []
         for k in range(self.aug_K):
-            Q_list = self.critic(obs[k], action)
+            if self.pos_emb:
+                Q_list = self.critic(obs[k], action, pos=pos_feature)
+            else:
+                Q_list = self.critic(obs[k], action)
             critic_loss = 0
             for i in range(self.critic.num_Qs):
                 critic_loss += F.mse_loss(Q_list[i], avg_target_Q)
@@ -348,23 +421,34 @@ class DrQV2Agent:
 
         # optimize encoder and critic
         self.encoder_opt.zero_grad(set_to_none=True)
+        if self.pos_emb:
+            self.pos_emb_opt.zero_grad(set_to_none=True)
         self.critic_opt.zero_grad(set_to_none=True)
         avg_critic_loss.backward()
         self.critic_opt.step()
+        if self.pos_emb:
+            self.pos_emb_opt.step()
         self.encoder_opt.step()
 
         return metrics
 
-    def update_actor(self, obs, step):
+    def update_actor(self, obs, step, pos_feature):
         metrics = dict()
 
         stddev = utils.schedule(self.stddev_schedule, step)
-        dist = self.actor(obs[0], stddev)
+        if self.pos_emb:
+            dist = self.actor(obs[0], stddev, pos=pos_feature)
+        else:
+            dist = self.actor(obs[0], stddev)
         action = dist.sample(clip=self.stddev_clip)
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         # Q1, Q2 = self.critic(obs[0], action)
         # Q = torch.min(Q1, Q2)
-        Q_list = self.critic(obs[0], action)
+
+        if self.pos_emb:
+            Q_list = self.critic(obs[0], action, pos=pos_feature)
+        else:
+            Q_list = self.critic(obs[0], action)
         Q = torch.min(torch.stack(Q_list), dim=0)[0]
 
         actor_loss = -Q.mean()
@@ -405,6 +489,30 @@ class DrQV2Agent:
         if self.use_tb:
             metrics['dynamics_loss'] = dynamics_loss.item()
             metrics['reward_loss'] = reward_loss.item()
+
+        return metrics
+
+    def temporal_clustering(self, obs, next_obs):
+        metrics = dict()
+        obs_feature = self.critic.trunk(self.encoder(obs))
+        next_obs_feature = self.critic.trunk(self.encoder(next_obs))
+        cos_sim = self.cosine_sim(obs_feature, next_obs_feature)
+        exp_cossim = torch.exp(cos_sim)
+
+        with torch.no_grad():
+            fitted = self.kmeans.fit(cos_sim.cpu().numpy().reshape(-1, 1))
+            label = torch.tensor((fitted.labels_ == 0).reshape(-1, 1), device=self.device)
+        loss = -torch.log(torch.sum(exp_cossim)/torch.sum(exp_cossim*label))
+
+        # optimize dynamics model, reward model and encoder
+        self.encoder_opt.zero_grad(set_to_none=True)
+        self.critic_opt.zero_grad(set_to_none=True)
+        loss.backward()
+        self.critic_opt.step()
+        self.encoder_opt.step()
+
+        if self.use_tb:
+            metrics['temp_loss'] = loss.item()
 
         return metrics
 
@@ -467,7 +575,7 @@ class DrQV2Agent:
                 self.hash_count.fit_before_process_samples(feature)
         else:
             batch = next(replay_iter)
-            obs, action, reward, discount, repeat, next_obs, one_step_next_obs, one_step_reward = \
+            obs, action, reward, discount, repeat, traj_index, next_obs, one_step_next_obs, one_step_reward = \
                 utils.to_torch(batch, self.device)
 
         # augment
@@ -492,19 +600,25 @@ class DrQV2Agent:
         if self.use_tb:
             metrics['batch_reward'] = reward.mean().item()
 
+        if self.pos_emb:
+            pos_feature = self.pe(traj_index)
         # update critic
         metrics.update(
-            self.update_critic(obs_all, action, reward, discount, next_obs_all, step))
+            self.update_critic(obs_all, action, reward, discount, next_obs_all, step, pos_feature))
 
         # update dynamics and reward model
         if self.train_dynamics_model != 0:
             metrics.update(self.update_dynamics_reward_model(obs.float(), action, one_step_reward,
                                                              one_step_next_obs.float()))
+        # temporal clustering
+        if self.temp_cluster:
+            metrics.update(self.temporal_clustering(obs.float(), one_step_next_obs.float()))
 
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
-        metrics.update(self.update_actor(obs_all, step))
+        pos_feature = pos_feature.detach()
+        metrics.update(self.update_actor(obs_all, step, pos_feature))
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target, self.critic_target_tau)

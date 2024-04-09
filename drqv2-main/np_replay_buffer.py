@@ -32,6 +32,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         self.dis = np.zeros([self.buffer_size], dtype=np.float32)
 
         self.repeat = np.zeros([self.buffer_size], dtype=np.float32)
+        self.traj_index_all = np.zeros([self.buffer_size], dtype=np.int)
         # which timesteps can be validly sampled (Not within nstep from end of
         # an episode or last recorded observation)
         self.valid = np.zeros([self.buffer_size], dtype=np.bool_)
@@ -64,6 +65,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
             np.copyto(self.act[self.index], time_step.action)
             self.rew[self.index] = time_step.reward
             self.repeat[self.index] = repeat
+            self.traj_index_all[self.index] = self.traj_index-1
             self.dis[self.index] = time_step.discount
             self.valid[(self.index + self.frame_stack) % self.buffer_size] = False
             if self.traj_index >= self.nstep:
@@ -103,6 +105,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
 
         act = self.act[indices]
         repeat = self.repeat[indices]
+        traj_index = self.traj_index_all[indices]
         dis = np.expand_dims(self.next_dis * self.dis[nobs_gather_ranges[:, -1]], axis=-1)
 
         # one step obs
@@ -111,7 +114,7 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         # one step reward
         one_step_next_reward = self.rew[indices]
 
-        ret = (obs, act, rew, dis, repeat, nobs, one_step_next_obs, one_step_next_reward)
+        ret = (obs, act, rew, dis, repeat, traj_index, nobs, one_step_next_obs, one_step_next_reward)
         return ret
 
     def __len__(self):

@@ -56,6 +56,10 @@ repeat_coefficient: 1.0
 load_folder: None
 load_model: None
 
+# temporal clustering
+temp_cluster: false
+pos_emb: false
+
 ##### augmentation
 # image transformation
 aug_K: 1
@@ -96,7 +100,8 @@ agent:
   noisy_net: ${noisy_net}
   load_folder: ${load_folder}
   load_model: ${load_model}
-
+  temp_cluster: ${temp_cluster}
+  pos_emb: ${pos_emb}
 
 hydra:
   run:
