@@ -324,6 +324,31 @@ class Workspace:
                         repeat_prob_record_list.append(total_num_repeat / self.global_step)
                         np.savez(str(self.work_dir) + '/repeat_prob.npz',
                                  repeat_prob=np.array(repeat_prob_record_list))
+                elif self.cfg.repeat_type == 3:
+                    # use a scheduler to decide repetition
+                    action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
+                    if episode_step == 0 or repeat_num == 0:
+                        if self.global_step < (0.05*self.cfg.num_train_frames/self.cfg.action_repeat):
+                            repeat_num = 7
+                            total_num_repeat += repeat_num+1
+                        elif self.global_step < (0.15*self.cfg.num_train_frames/self.cfg.action_repeat):
+                            repeat_num = 3
+                            total_num_repeat += repeat_num+1
+                        elif self.global_step < (0.35*self.cfg.num_train_frames/self.cfg.action_repeat):
+                            repeat_num = 1
+                            total_num_repeat += repeat_num+1
+                        else:
+                            repeat_num = 0
+                            total_num_repeat += 1
+                        repeat_index = 1
+                    else:
+                        action = last_action
+                        repeat_num -= 1
+                        repeat_index += 1
+                    if self.global_step % 5000 == 1:
+                        repeat_prob_record_list.append(total_num_repeat / self.global_step)
+                        np.savez(str(self.work_dir) + '/repeat_prob.npz',
+                                 repeat_prob=np.array(repeat_prob_record_list))
                 elif self.cfg.epsilon_greedy and self.cfg.epsilon_zeta:
                     if episode_step == 0:
                         action = self.agent.act(time_step.observation,

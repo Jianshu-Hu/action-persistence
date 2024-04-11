@@ -312,7 +312,8 @@ class DrQV2Agent:
                                                           repeat_coefficient=repeat_coefficient)
         self.temp_cluster = temp_cluster
         self.cosine_sim = torch.nn.CosineSimilarity(dim=1)
-        self.kmeans = KMeans(n_clusters=2,  init=np.array([[0.0], [1.0]]))
+        if self.temp_cluster:
+            self.kmeans = KMeans(n_clusters=2,  init=np.array([[0.0], [1.0]]), n_init='auto')
 
 
         # epsilon greedy
@@ -492,10 +493,11 @@ class DrQV2Agent:
 
         return metrics
 
-    def temporal_clustering(self, obs, next_obs):
+    def temporal_clustering(self, one_traj_obs):
         metrics = dict()
-        obs_feature = self.critic.trunk(self.encoder(obs))
-        next_obs_feature = self.critic.trunk(self.encoder(next_obs))
+        one_traj_features = self.critic.trunk(self.encoder(one_traj_obs))
+        obs_feature = torch.clone(one_traj_features[0: -1])
+        next_obs_feature = torch.clone(one_traj_features[1:])
         cos_sim = self.cosine_sim(obs_feature, next_obs_feature)
         exp_cossim = torch.exp(cos_sim)
 
@@ -537,46 +539,47 @@ class DrQV2Agent:
         if step % self.update_every_steps != 0:
             return metrics
 
-        if self.repeat_type > 0:
-            batch = next(replay_iter)
-            obs, action, reward, discount, repeat, next_obs, one_step_next_obs, one_step_reward = \
-                utils.to_torch(batch, self.device)
-            batch_size = obs.size(0)
-            mask = (repeat == 1)
-            obs = obs[mask]
-            action = action[mask]
-            reward = reward[mask]
-            discount = discount[mask]
-            next_obs = next_obs[mask]
-            num_sample = obs.size(0)
-            while num_sample < batch_size:
-                new_batch = next(replay_iter)
-                new_obs, new_action, new_reward, new_discount, new_repeat, new_next_obs,\
-                new_one_step_next_obs, new_one_step_reward = \
-                    utils.to_torch(new_batch, self.device)
-                mask = (new_repeat == 1)
-                obs = torch.vstack((obs, new_obs[mask]))
-                action = torch.vstack((action, new_action[mask]))
-                reward = torch.vstack((reward, new_reward[mask]))
-                discount = torch.vstack((discount, new_discount[mask]))
-                next_obs = torch.vstack((next_obs, new_next_obs[mask]))
-                num_sample = obs.size(0)
-            obs = obs[:batch_size]
-            action = action[:batch_size]
-            reward = reward[:batch_size]
-            discount = discount[:batch_size]
-            next_obs = next_obs[:batch_size]
-            # update hash count
-            with torch.no_grad():
-                if self.load_folder != 'None':
-                    feature = (self.critic_repeat.trunk(self.encoder_repeat(obs.float()))).cpu().numpy()
-                else:
-                    feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
-                self.hash_count.fit_before_process_samples(feature)
-        else:
-            batch = next(replay_iter)
-            obs, action, reward, discount, repeat, traj_index, next_obs, one_step_next_obs, one_step_reward = \
-                utils.to_torch(batch, self.device)
+        # if self.repeat_type > 0:
+        #     batch = next(replay_iter)
+        #     obs, action, reward, discount, repeat, traj_index, next_obs, one_step_next_obs, one_step_reward, _ = \
+        #         utils.to_torch(batch, self.device)
+        #     batch_size = obs.size(0)
+        #     mask = (repeat == 1)
+        #     obs = obs[mask]
+        #     action = action[mask]
+        #     reward = reward[mask]
+        #     discount = discount[mask]
+        #     next_obs = next_obs[mask]
+        #     num_sample = obs.size(0)
+        #     while num_sample < batch_size:
+        #         new_batch = next(replay_iter)
+        #         new_obs, new_action, new_reward, new_discount, new_repeat, new_traj_index, new_next_obs,\
+        #         new_one_step_next_obs, new_one_step_reward, _ = \
+        #             utils.to_torch(new_batch, self.device)
+        #         mask = (new_repeat == 1)
+        #         obs = torch.vstack((obs, new_obs[mask]))
+        #         action = torch.vstack((action, new_action[mask]))
+        #         reward = torch.vstack((reward, new_reward[mask]))
+        #         discount = torch.vstack((discount, new_discount[mask]))
+        #         next_obs = torch.vstack((next_obs, new_next_obs[mask]))
+        #         num_sample = obs.size(0)
+        #     obs = obs[:batch_size]
+        #     action = action[:batch_size]
+        #     reward = reward[:batch_size]
+        #     discount = discount[:batch_size]
+        #     next_obs = next_obs[:batch_size]
+        #     # update hash count
+        #     with torch.no_grad():
+        #         if self.load_folder != 'None':
+        #             feature = (self.critic_repeat.trunk(self.encoder_repeat(obs.float()))).cpu().numpy()
+        #         else:
+        #             feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
+        #         self.hash_count.fit_before_process_samples(feature)
+        # else:
+        batch = next(replay_iter)
+        obs, action, reward, discount, repeat, traj_index, next_obs, one_step_next_obs, one_step_reward,\
+            one_trajectory_obs = \
+            utils.to_torch(batch, self.device)
 
         # augment
         obs_all = []
@@ -602,6 +605,8 @@ class DrQV2Agent:
 
         if self.pos_emb:
             pos_feature = self.pe(traj_index)
+        else:
+            pos_feature = None
         # update critic
         metrics.update(
             self.update_critic(obs_all, action, reward, discount, next_obs_all, step, pos_feature))
@@ -612,12 +617,13 @@ class DrQV2Agent:
                                                              one_step_next_obs.float()))
         # temporal clustering
         if self.temp_cluster:
-            metrics.update(self.temporal_clustering(obs.float(), one_step_next_obs.float()))
+            metrics.update(self.temporal_clustering(one_trajectory_obs.float()))
 
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
-        pos_feature = pos_feature.detach()
+        if self.pos_emb:
+            pos_feature = pos_feature.detach()
         metrics.update(self.update_actor(obs_all, step, pos_feature))
 
         # update critic target

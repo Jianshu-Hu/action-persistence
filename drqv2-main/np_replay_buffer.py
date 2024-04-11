@@ -114,7 +114,19 @@ class EfficientReplayBuffer(AbstractReplayBuffer):
         # one step reward
         one_step_next_reward = self.rew[indices]
 
-        ret = (obs, act, rew, dis, repeat, traj_index, nobs, one_step_next_obs, one_step_next_reward)
+        # generate a trajectory
+        all_traj_start = (self.traj_index_all == 1).nonzero()[0]
+        trajectory_index = np.random.randint(0, len(all_traj_start)-1)
+        start_index = all_traj_start[trajectory_index]-1
+        end_index = all_traj_start[trajectory_index+1]-1
+        all_traj_frames = self.obs[start_index-self.frame_stack:end_index-self.frame_stack]
+        frames_1 = all_traj_frames[0:-2]
+        frames_2 = all_traj_frames[1:-1]
+        frames_3 = all_traj_frames[2:]
+        one_traj_frames = np.concatenate((frames_1, frames_2, frames_3), axis=1)
+
+        ret = (obs, act, rew, dis, repeat, traj_index, nobs, one_step_next_obs, one_step_next_reward,
+               one_traj_frames)
         return ret
 
     def __len__(self):
