@@ -84,57 +84,111 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
     else:
         plt.savefig('saved_figs/'+title)
 
-# 4.11
+# 4.18
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_temporal_cluster', 'drqv2_temporal_cluster_traj', 'drqv2_temporal_3_cluster_traj']
-plot_several_folders(prefix, folders_1, title='reacher_hard_temp')
+folders_1 = ['drqv2_scheduler_repeat_8_to_1', 'drqv2_scheduler_repeat_8_to_1+temp_cluster',
+             'drqv2_scheduler_repeat_8_to_1+actor_temp_cluster',
+             'drqv2_scheduler_repeat_8_to_1+actor_sim',
+             'drqv2_scheduler_repeat_8_to_1+actor_sim_proj']
+plot_several_folders(prefix, folders_1, title='reacher_hard_temp_ssl')
 
 prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_pos_emb']
-plot_several_folders(prefix, folders_1, title='reacher_hard_pos_emb')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
-plot_several_folders(prefix, folders_1, title='reacher_hard_frequency')
-
-prefix = 'reacher_hard/'
-# folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
-#              'drqv2_repeat_2_train_half', 'drqv2_repeat_4_train_less', 'drqv2_repeat_8_train_less',
-#              'drqv2_repeat_2_train_same_batch_size', 'drqv2_repeat_4_train_same_batch_size',
-#              'drqv2_repeat_8_train_same_batch_size']
-folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
-             'drqv2_repeat_2_train_same_batch_size', 'drqv2_repeat_4_train_same_batch_size',
-             'drqv2_repeat_8_train_same_batch_size']
-plot_several_folders(prefix, folders_1, title='reacher_hard_train_lower_freq')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
-             'drqv2_repeat_2_train_same_batch_size',
-             'drqv2_count_20_repeat_2_train_same_batch_size',
-             'drqv2_scheduler_repeat_8_to_1']
-plot_several_folders(prefix, folders_1, title='reacher_hard_count')
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
-plot_several_folders(prefix, folders_1, title='acrobot_swingup_frequency')
+folders_1 = ['drqv2_scheduler_repeat_8_to_1', 'drqv2_scheduler_repeat_8_to_1+temp_cluster',
+             'drqv2_scheduler_repeat_8_to_1+actor_temp_cluster',
+             'drqv2_scheduler_repeat_8_to_1+actor_sim',
+             'drqv2_scheduler_repeat_8_to_1+actor_sim_proj']
+plot_several_folders(prefix, folders_1, title='reacher_hard_temp_ssl_smoothness', smooth=True)
 
 prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
-plot_several_folders(prefix, folders_1, title='quadruped_run_frequency')
+folders_1 = ['drqv2_time_scheduler_repeat_8_to_1', 'drqv2_time_scheduler_repeat_8_to_1+temp_cluster',
+             'drqv2_time_scheduler_repeat_8_to_1+actor_temp_cluster',
+             'drqv2_time_scheduler_repeat_8_to_1+actor_sim',
+             'drqv2_time_scheduler_repeat_8_to_1+actor_sim_proj']
+plot_several_folders(prefix, folders_1, title='quadruped_run_temp_ssl')
 
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2_time_scheduler_repeat_8_to_1', 'drqv2_time_scheduler_repeat_8_to_1+temp_cluster',
+             'drqv2_time_scheduler_repeat_8_to_1+actor_temp_cluster',
+             'drqv2_time_scheduler_repeat_8_to_1+actor_sim',
+             'drqv2_time_scheduler_repeat_8_to_1+actor_sim_proj']
+plot_several_folders(prefix, folders_1, title='quadruped_run_temp_ssl_smoothness', smooth=True)
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2_repeat_2_simhash_count', 'drqv2_scheduler_repeat_8_to_1', 'drqv2_count_scheduler_8_to_1_base_5',
+             'drqv2_count_scheduler_8_to_1_base_3']
+plot_several_folders(prefix, folders_1, title='reacher_hard_count_scheduler')
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count',
+             'drqv2_count_20_from_2_to_1', 'drqv2_scheduler_repeat_8_to_1']
+plot_several_folders(prefix, folders_1, title='reacher_hard_scheduler')
+
+prefix = 'reacher_hard/'
+folders_1 = ['drqv2_fix_repeat_2',  'drqv2_scheduler_repeat_8_to_1',
+             'drqv2_scheduler_repeat_8_to_1+temp_cluster']
+plot_several_folders(prefix, folders_1, title='reacher_hard_scheduler_smoothness', smooth=True)
+
+prefix = 'acrobot_swingup/'
+folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count',
+             'drqv2_count_20_from_2_to_1', 'drqv2_time_scheduler_repeat_8_to_1']
+plot_several_folders(prefix, folders_1, title='acrobot_swingup_scheduler')
+
+prefix = 'quadruped_run/'
+folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1',
+             'drqv2_time_scheduler_repeat_8_to_1']
+plot_several_folders(prefix, folders_1, title='quadruped_run_scheduler')
+
+# # 4.11
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_temporal_cluster', 'drqv2_temporal_cluster_traj', 'drqv2_temporal_3_cluster_traj']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_temp')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_pos_emb']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_pos_emb')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_frequency')
+#
+# prefix = 'reacher_hard/'
+# # folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
+# #              'drqv2_repeat_2_train_half', 'drqv2_repeat_4_train_less', 'drqv2_repeat_8_train_less',
+# #              'drqv2_repeat_2_train_same_batch_size', 'drqv2_repeat_4_train_same_batch_size',
+# #              'drqv2_repeat_8_train_same_batch_size']
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
+#              'drqv2_repeat_2_train_same_batch_size', 'drqv2_repeat_4_train_same_batch_size',
+#              'drqv2_repeat_8_train_same_batch_size']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_train_lower_freq')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2',
+#              'drqv2_repeat_2_train_same_batch_size',
+#              'drqv2_count_20_repeat_2_train_same_batch_size',
+#              'drqv2_scheduler_repeat_8_to_1']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_count')
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup_frequency')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1', 'drqv2_fix_repeat_2']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_frequency')
+#
+# # prefix = 'manipulation_reach_site/'
+# # folders_1 = ['drqv2', 'drqv2_count_20_from_2_to_1', 'drqv2_count_10_from_2_to_1', 'drqv2_count_30_from_2_to_1',
+# #              'drqv2_count_40_from_2_to_1', 'drqv2_fix_repeat_2']
+# # plot_several_folders(prefix, folders_1, title='manipulation_reach_site_frequency')
+#
 # prefix = 'manipulation_reach_site/'
-# folders_1 = ['drqv2', 'drqv2_count_20_from_2_to_1', 'drqv2_count_10_from_2_to_1', 'drqv2_count_30_from_2_to_1',
-#              'drqv2_count_40_from_2_to_1', 'drqv2_fix_repeat_2']
+# folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05', 'drqv2_count_30_from_2_to_1', 'drqv2_fix_repeat_2']
 # plot_several_folders(prefix, folders_1, title='manipulation_reach_site_frequency')
-
-prefix = 'manipulation_reach_site/'
-folders_1 = ['drqv2', 'drqv2_simhash_repeat_c05', 'drqv2_count_30_from_2_to_1', 'drqv2_fix_repeat_2']
-plot_several_folders(prefix, folders_1, title='manipulation_reach_site_frequency')
-
-prefix = 'manipulation_reach_site/'
-folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_train_same_batch_size',
-             'drqv2_repeat_4_train_same_batch_size']
-plot_several_folders(prefix, folders_1, title='manipulation_reach_site_train_low_frequency')
+#
+# prefix = 'manipulation_reach_site/'
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_train_same_batch_size',
+#              'drqv2_repeat_4_train_same_batch_size']
+# plot_several_folders(prefix, folders_1, title='manipulation_reach_site_train_low_frequency')
 
 
 # 4.4

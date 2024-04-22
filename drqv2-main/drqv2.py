@@ -17,6 +17,8 @@ import utils
 
 from sklearn.cluster import KMeans
 
+from pcgrad import PCGrad
+
 
 class Encoder(nn.Module):
     def __init__(self, obs_shape):
@@ -275,6 +277,9 @@ class DrQV2Agent:
 
         # optimizers
         self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
+        # if temp_cluster:
+        #     self.actor_opt = PCGrad(torch.optim.Adam(self.actor.parameters(), lr=lr), reduction='sum')
+        # else:
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
         self.pos_emb_opt = torch.optim.Adam([self.pe.div_term], lr=lr)
@@ -433,7 +438,7 @@ class DrQV2Agent:
 
         return metrics
 
-    def update_actor(self, obs, step, pos_feature):
+    def update_actor(self, obs, step, pos_feature, one_traj_obs):
         metrics = dict()
 
         stddev = utils.schedule(self.stddev_schedule, step)
@@ -454,10 +459,28 @@ class DrQV2Agent:
 
         actor_loss = -Q.mean()
 
-        # optimize actor
-        self.actor_opt.zero_grad(set_to_none=True)
-        actor_loss.backward()
-        self.actor_opt.step()
+        if self.temp_cluster:
+            with torch.no_grad():
+                encoded_obs = self.encoder(one_traj_obs)
+            one_traj_features = self.actor.trunk(encoded_obs)
+
+            # cosine similarity
+            obs_feature = torch.clone(one_traj_features[0: -1])
+            next_obs_feature = torch.clone(one_traj_features[1:])
+            cos_sim = self.cosine_sim(obs_feature, next_obs_feature)
+            sim_loss = -0.1 * torch.mean(cos_sim)
+
+            actor_loss += sim_loss
+            # optimize actor
+            self.actor_opt.zero_grad(set_to_none=True)
+            actor_loss.backward()
+            # self.actor_opt.pc_backward([actor_loss, sim_loss])
+            self.actor_opt.step()
+        else:
+            # optimize actor
+            self.actor_opt.zero_grad(set_to_none=True)
+            actor_loss.backward()
+            self.actor_opt.step()
 
         if self.use_tb:
             metrics['actor_loss'] = actor_loss.item()
@@ -495,23 +518,65 @@ class DrQV2Agent:
 
     def temporal_clustering(self, one_traj_obs):
         metrics = dict()
-        one_traj_features = self.critic.trunk(self.encoder(one_traj_obs))
+        with torch.no_grad():
+            encoded_obs = self.encoder(one_traj_obs)
+        one_traj_features = self.actor.trunk(encoded_obs)
+
+        # cosine similarity for k-means
         obs_feature = torch.clone(one_traj_features[0: -1])
         next_obs_feature = torch.clone(one_traj_features[1:])
         cos_sim = self.cosine_sim(obs_feature, next_obs_feature)
-        exp_cossim = torch.exp(cos_sim)
+        # exp_cossim = torch.exp(cos_sim)
+        #
+        # with torch.no_grad():
+        #     fitted = self.kmeans.fit(cos_sim.cpu().numpy().reshape(-1, 1))
+        #     label = torch.tensor((fitted.labels_ == 0).reshape(-1, 1), device=self.device)
+        # loss = -torch.log(torch.sum(exp_cossim)/torch.sum(exp_cossim*label))
+        loss = -0.1*torch.mean(cos_sim)
 
-        with torch.no_grad():
-            fitted = self.kmeans.fit(cos_sim.cpu().numpy().reshape(-1, 1))
-            label = torch.tensor((fitted.labels_ == 0).reshape(-1, 1), device=self.device)
-        loss = -torch.log(torch.sum(exp_cossim)/torch.sum(exp_cossim*label))
+        # one_traj_features = self.critic.trunk(self.encoder(one_traj_obs))
+
+        # # cosine similarity for k-means
+        # obs_feature = torch.clone(one_traj_features[0: -1])
+        # next_obs_feature = torch.clone(one_traj_features[1:])
+        # cos_sim = self.cosine_sim(obs_feature, next_obs_feature)
+        # exp_cossim = torch.exp(cos_sim)
+        #
+        # with torch.no_grad():
+        #     fitted = self.kmeans.fit(cos_sim.cpu().numpy().reshape(-1, 1))
+        #     label = torch.tensor((fitted.labels_ == 0).reshape(-1, 1), device=self.device)
+        # loss = -torch.log(torch.sum(exp_cossim)/torch.sum(exp_cossim*label))
+
+        # # cluster samples using policy actions
+        # obs_feature = torch.clone(one_traj_features[0: -1])
+        # next_obs_feature = torch.clone(one_traj_features[1:])
+        # cos_sim = self.cosine_sim(obs_feature, next_obs_feature)
+        # exp_cossim = torch.exp(cos_sim)
+        #
+        # with torch.no_grad():
+        #     traj_obs = self.encoder(one_traj_obs)
+        #     dist = self.actor(traj_obs, std=0)
+        #     action = dist.sample(clip=self.stddev_clip)
+        #     action_class = (action > 0.2).to(torch.int) - (action < -0.2).to(torch.int)
+        #     elementwise_compare = (action_class[0:-1] == action_class[1:])
+        #     action_compare = torch.sum(elementwise_compare, dim=-1) < action.size(1)
+        # if torch.sum(action_compare) == 0:
+        #     # loss = -torch.mean(torch.log(exp_cossim))
+        #     if self.use_tb:
+        #         metrics['temp_loss'] = 0
+        #
+        #     return metrics
+        # else:
+        #     loss = -torch.log(torch.sum(exp_cossim)/torch.sum(exp_cossim*action_compare))
 
         # optimize dynamics model, reward model and encoder
-        self.encoder_opt.zero_grad(set_to_none=True)
-        self.critic_opt.zero_grad(set_to_none=True)
+        # self.encoder_opt.zero_grad(set_to_none=True)
+        # self.critic_opt.zero_grad(set_to_none=True)
+        self.actor_opt.zero_grad(set_to_none=True)
         loss.backward()
-        self.critic_opt.step()
-        self.encoder_opt.step()
+        # self.critic_opt.step()
+        # self.encoder_opt.step()
+        self.actor_opt.step()
 
         if self.use_tb:
             metrics['temp_loss'] = loss.item()
@@ -616,15 +681,15 @@ class DrQV2Agent:
             metrics.update(self.update_dynamics_reward_model(obs.float(), action, one_step_reward,
                                                              one_step_next_obs.float()))
         # temporal clustering
-        if self.temp_cluster:
-            metrics.update(self.temporal_clustering(one_trajectory_obs.float()))
+        # if self.temp_cluster:
+        #     metrics.update(self.temporal_clustering(one_trajectory_obs.float()))
 
         # update actor
         for k in range(self.aug_K):
             obs_all[k] = obs_all[k].detach()
         if self.pos_emb:
             pos_feature = pos_feature.detach()
-        metrics.update(self.update_actor(obs_all, step, pos_feature))
+        metrics.update(self.update_actor(obs_all, step, pos_feature, one_trajectory_obs.float()))
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target, self.critic_target_tau)

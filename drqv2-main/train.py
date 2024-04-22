@@ -302,19 +302,20 @@ class Workspace:
                         # total_num_repeat += repeat_num+1
                         # repeat_index = 1
 
-                        # if count >= 30:
-                        #     repeat_num = 0
-                        # elif count >= 15:
-                        #     repeat_num = 1
-                        #     total_num_repeat += 2
-                        # else:
-                        #     repeat_num = 3
-                        #     total_num_repeat += 4
-                        if count >= 20:
+                        if count >= 15:
                             repeat_num = 0
-                        else:
+                        elif count >= 10:
                             repeat_num = 1
-                            total_num_repeat += repeat_num+1
+                        elif count >= 5:
+                            repeat_num = 3
+                        else:
+                            repeat_num = 7
+                        # if count >= 20:
+                        #     repeat_num = 0
+                        # else:
+                        #     repeat_num = 1
+                        #     total_num_repeat += repeat_num+1
+                        total_num_repeat += repeat_num + 1
                         repeat_index = 1
                     else:
                         action = last_action
@@ -330,16 +331,13 @@ class Workspace:
                     if episode_step == 0 or repeat_num == 0:
                         if self.global_step < (0.05*self.cfg.num_train_frames/self.cfg.action_repeat):
                             repeat_num = 7
-                            total_num_repeat += repeat_num+1
                         elif self.global_step < (0.15*self.cfg.num_train_frames/self.cfg.action_repeat):
                             repeat_num = 3
-                            total_num_repeat += repeat_num+1
                         elif self.global_step < (0.35*self.cfg.num_train_frames/self.cfg.action_repeat):
                             repeat_num = 1
-                            total_num_repeat += repeat_num+1
                         else:
                             repeat_num = 0
-                            total_num_repeat += 1
+                        total_num_repeat += repeat_num + 1
                         repeat_index = 1
                     else:
                         action = last_action
