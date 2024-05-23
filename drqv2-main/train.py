@@ -278,7 +278,7 @@ class Workspace:
                     if episode_step == 0:
                         action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
                     else:
-                        repeat_prob = self.agent.hash_count.predict(feature)
+                        repeat_prob = self.agent.hash_count.predict_prob(feature)
                         if np.random.uniform() < repeat_prob:
                             action = last_action
                         else:
@@ -296,7 +296,7 @@ class Workspace:
                     else:
                         feature = (self.agent.critic.trunk(self.agent.encoder(obs_torch))).cpu().numpy()
                     action = self.agent.act(time_step.observation, self.global_step, eval_mode=False)
-                    count = self.agent.hash_count.predict(feature)
+                    count = self.agent.hash_count.predict_count(feature)
                     if episode_step == 0 or repeat_num == 0:
                         # repeat_num = 3
                         # total_num_repeat += repeat_num+1

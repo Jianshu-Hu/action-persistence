@@ -250,10 +250,13 @@ class HashingBonusEvaluator(object):
         before_counts = self.query_hash(obss)
         self.inc_hash(obss)
 
-    def predict(self, obs):
+    def predict_count(self, obs):
         counts = self.query_hash(obs)
         return np.maximum(1., counts)
-        # return self.repeat_coefficient / np.maximum(1., np.sqrt(counts))
+
+    def predict_prob(self, obs):
+        counts = self.query_hash(obs)
+        return self.repeat_coefficient / np.maximum(1., np.sqrt(counts))
 
 
 class RNDModel(nn.Module):
