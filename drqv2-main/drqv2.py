@@ -645,6 +645,14 @@ class DrQV2Agent:
         obs, action, reward, discount, repeat, traj_index, next_obs, one_step_next_obs, one_step_reward,\
             one_trajectory_obs = \
             utils.to_torch(batch, self.device)
+        if self.repeat_type > 0:
+            # update hash count
+            with torch.no_grad():
+                if self.load_folder != 'None':
+                    feature = (self.critic_repeat.trunk(self.encoder_repeat(obs.float()))).cpu().numpy()
+                else:
+                    feature = (self.critic.trunk(self.encoder(obs.float()))).cpu().numpy()
+                self.hash_count.fit_before_process_samples(feature)
 
         # augment
         obs_all = []

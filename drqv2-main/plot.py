@@ -26,8 +26,9 @@ def average_over_several_runs(folder, smooth):
     return mean, std, evaluation_freq/1000
 
 
-def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save='save', title="", smooth=False):
-    plt.rcParams["figure.figsize"] = (6, 5)
+def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save='save', title="", smooth=False,
+                         file_name=None):
+    plt.rcParams["figure.figsize"] = (4.8, 4)
     # plt.rcParams["figure.figsize"] = (15, 12)
     fig, axs = plt.subplots(1, 1)
     for i in range(len(folders)):
@@ -82,61 +83,148 @@ def plot_several_folders(prefix, folders, period=0, label_list=[], plot_or_save=
     if plot_or_save == 'plot':
         plt.show()
     else:
-        plt.savefig('saved_figs/'+title)
+        if file_name is not None:
+            plt.savefig('saved_figs/' + file_name)
+        else:
+            plt.savefig('saved_figs/' + title)
+
+# paper
+# experiment set 1
+# drqv2_action_repeat_1, drqv2, drqv2_actin_repeat_4,drqv2_repeat_1_simhash_repeat
+label_list=['Action persistence 1', 'Action persistence 2', 'Action persistence 4', 'SNAP']
+folders_1 = ['drqv2_repeat_1_nstep6_upevery4', 'drqv2', 'drqv2_action_repeat_4_update_every_1_nstep_2',
+             'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+# label_temp=['drqv2_action_repeat_1', 'drqv2_action_repeat_2', 'drqv2_simhash_repeat']
+# folders_tmp = ['drqv2_repeat_1_nstep6_upevery4', 'drqv2',
+#              'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+prefix = 'acrobot_swingup'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_different_repeat',
+                     title='acrobot swingup', label_list=label_list)
+
+prefix = 'reacher_hard'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_different_repeat',
+                     title='reacher hard', label_list=label_list)
+
+# prefix = 'walker_run'
+# plot_several_folders(prefix+'/', folders_1, title=prefix+'_different_repeat', label_list=label_list)
+
+prefix = 'quadruped_run'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_different_repeat',
+                     title='quadruped_run', label_list=label_list)
+
+# aggregated performance
+label_list=['Baseline', 'Epsilon greedy', 'Epsilon zeta', 'SNAP']
+folders_1 = ['drqv2', 'drqv2_epsilon_greedy', 'drqv2_epsilon_zeta',
+             'drqv2_batch_unvisit_repeat_nstep6_upevery4']
+prefix = 'acrobot_swingup'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='acrobot swingup', label_list=label_list)
+
+prefix = 'reacher_hard'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='reacher hard', label_list=label_list)
+
+prefix = 'hopper_hop'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='hopper hop', label_list=label_list)
+
+prefix = 'finger_turn_hard'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='finger turn hard', label_list=label_list)
+
+prefix = 'walker_run'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='walker run', label_list=label_list)
+
+prefix = 'quadruped_run'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='quadruped run', label_list=label_list)
+
+prefix = 'humanoid_stand'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='humanoid stand', label_list=label_list)
+
+prefix = 'humanoid_walk'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='humanoid walk', label_list=label_list)
+
+prefix = 'humanoid_run'
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_base', title='humanoid run', label_list=label_list)
+
+# basic exploration + simhash repeat
+prefix = 'acrobot_swingup'
+label_list_1 = ['Epsilon greedy', 'Epsilon greedy+SNAP']
+label_list_2 = ['Entropy', 'Entropy+SNAP']
+label_list_3 = ['Noisy net', 'Noisy net+SNAP']
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_epsilon_greedy', title='acrobot swingup', label_list=label_list_1)
+folders_1 = ['drqv2_sac', 'drqv2_sac_repeat_1_simhash_count']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_entropy', title='acrobot swingup', label_list=label_list_2)
+folders_1 = ['drqv2_noisy_net', 'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_noisy_net', title='acrobot swingup', label_list=label_list_3)
+
+prefix = 'reacher_hard'
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_epsilon_greedy', title='reacher hard', label_list=label_list_1)
+folders_1 = ['drqv2_sac', 'drqv2_sac_repeat_1_simhash_count']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_entropy', title='reacher hard', label_list=label_list_2)
+folders_1 = ['drqv2_noisy_net_actor_critic', 'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_noisy_net', title='reacher hard', label_list=label_list_3)
+
+prefix = 'quadruped_run'
+folders_1 = ['drqv2_epsilon_greedy', 'drqv2_action_repeat_1_epsilon_greedy_simhash_repeat']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_epsilon_greedy',title='quadruped run', label_list=label_list_1)
+folders_1 = ['drqv2_sac', 'drqv2_sac_repeat_1_simhash_count']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_entropy', title='quadruped run',label_list=label_list_2)
+folders_1 = ['drqv2_noisy_net', 'drqv2_action_repeat_1_noisy_net_simhash_repeat']
+plot_several_folders(prefix+'/', folders_1, file_name=prefix+'_noisy_net', title='quadruped run', label_list=label_list_3)
+
 
 # 4.18
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_scheduler_repeat_8_to_1', 'drqv2_scheduler_repeat_8_to_1+temp_cluster',
-             'drqv2_scheduler_repeat_8_to_1+actor_temp_cluster',
-             'drqv2_scheduler_repeat_8_to_1+actor_sim',
-             'drqv2_scheduler_repeat_8_to_1+actor_sim_proj']
-plot_several_folders(prefix, folders_1, title='reacher_hard_temp_ssl')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_scheduler_repeat_8_to_1', 'drqv2_scheduler_repeat_8_to_1+temp_cluster',
-             'drqv2_scheduler_repeat_8_to_1+actor_temp_cluster',
-             'drqv2_scheduler_repeat_8_to_1+actor_sim',
-             'drqv2_scheduler_repeat_8_to_1+actor_sim_proj']
-plot_several_folders(prefix, folders_1, title='reacher_hard_temp_ssl_smoothness', smooth=True)
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2_time_scheduler_repeat_8_to_1', 'drqv2_time_scheduler_repeat_8_to_1+temp_cluster',
-             'drqv2_time_scheduler_repeat_8_to_1+actor_temp_cluster',
-             'drqv2_time_scheduler_repeat_8_to_1+actor_sim',
-             'drqv2_time_scheduler_repeat_8_to_1+actor_sim_proj']
-plot_several_folders(prefix, folders_1, title='quadruped_run_temp_ssl')
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2_time_scheduler_repeat_8_to_1', 'drqv2_time_scheduler_repeat_8_to_1+temp_cluster',
-             'drqv2_time_scheduler_repeat_8_to_1+actor_temp_cluster',
-             'drqv2_time_scheduler_repeat_8_to_1+actor_sim',
-             'drqv2_time_scheduler_repeat_8_to_1+actor_sim_proj']
-plot_several_folders(prefix, folders_1, title='quadruped_run_temp_ssl_smoothness', smooth=True)
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_repeat_2_simhash_count', 'drqv2_scheduler_repeat_8_to_1', 'drqv2_count_scheduler_8_to_1_base_5',
-             'drqv2_count_scheduler_8_to_1_base_3']
-plot_several_folders(prefix, folders_1, title='reacher_hard_count_scheduler')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count',
-             'drqv2_count_20_from_2_to_1', 'drqv2_scheduler_repeat_8_to_1']
-plot_several_folders(prefix, folders_1, title='reacher_hard_scheduler')
-
-prefix = 'reacher_hard/'
-folders_1 = ['drqv2_fix_repeat_2',  'drqv2_scheduler_repeat_8_to_1',
-             'drqv2_scheduler_repeat_8_to_1+temp_cluster']
-plot_several_folders(prefix, folders_1, title='reacher_hard_scheduler_smoothness', smooth=True)
-
-prefix = 'acrobot_swingup/'
-folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count',
-             'drqv2_count_20_from_2_to_1', 'drqv2_time_scheduler_repeat_8_to_1']
-plot_several_folders(prefix, folders_1, title='acrobot_swingup_scheduler')
-
-prefix = 'quadruped_run/'
-folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1',
-             'drqv2_time_scheduler_repeat_8_to_1']
-plot_several_folders(prefix, folders_1, title='quadruped_run_scheduler')
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_scheduler_repeat_8_to_1', 'drqv2_scheduler_repeat_8_to_1+temp_cluster',
+#              'drqv2_scheduler_repeat_8_to_1+actor_temp_cluster',
+#              'drqv2_scheduler_repeat_8_to_1+actor_sim',
+#              'drqv2_scheduler_repeat_8_to_1+actor_sim_proj']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_temp_ssl')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_scheduler_repeat_8_to_1', 'drqv2_scheduler_repeat_8_to_1+temp_cluster',
+#              'drqv2_scheduler_repeat_8_to_1+actor_temp_cluster',
+#              'drqv2_scheduler_repeat_8_to_1+actor_sim',
+#              'drqv2_scheduler_repeat_8_to_1+actor_sim_proj']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_temp_ssl_smoothness', smooth=True)
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2_time_scheduler_repeat_8_to_1', 'drqv2_time_scheduler_repeat_8_to_1+temp_cluster',
+#              'drqv2_time_scheduler_repeat_8_to_1+actor_temp_cluster',
+#              'drqv2_time_scheduler_repeat_8_to_1+actor_sim',
+#              'drqv2_time_scheduler_repeat_8_to_1+actor_sim_proj']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_temp_ssl')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2_time_scheduler_repeat_8_to_1', 'drqv2_time_scheduler_repeat_8_to_1+temp_cluster',
+#              'drqv2_time_scheduler_repeat_8_to_1+actor_temp_cluster',
+#              'drqv2_time_scheduler_repeat_8_to_1+actor_sim',
+#              'drqv2_time_scheduler_repeat_8_to_1+actor_sim_proj']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_temp_ssl_smoothness', smooth=True)
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_repeat_2_simhash_count', 'drqv2_scheduler_repeat_8_to_1', 'drqv2_count_scheduler_8_to_1_base_5',
+#              'drqv2_count_scheduler_8_to_1_base_3']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_count_scheduler')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count',
+#              'drqv2_count_20_from_2_to_1', 'drqv2_scheduler_repeat_8_to_1']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_scheduler')
+#
+# prefix = 'reacher_hard/'
+# folders_1 = ['drqv2_fix_repeat_2',  'drqv2_scheduler_repeat_8_to_1',
+#              'drqv2_scheduler_repeat_8_to_1+temp_cluster']
+# plot_several_folders(prefix, folders_1, title='reacher_hard_scheduler_smoothness', smooth=True)
+#
+# prefix = 'acrobot_swingup/'
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count',
+#              'drqv2_count_20_from_2_to_1', 'drqv2_time_scheduler_repeat_8_to_1']
+# plot_several_folders(prefix, folders_1, title='acrobot_swingup_scheduler')
+#
+# prefix = 'quadruped_run/'
+# folders_1 = ['drqv2', 'drqv2_fix_repeat_2', 'drqv2_repeat_2_simhash_count', 'drqv2_count_20_from_2_to_1',
+#              'drqv2_time_scheduler_repeat_8_to_1']
+# plot_several_folders(prefix, folders_1, title='quadruped_run_scheduler')
 
 # # 4.11
 # prefix = 'reacher_hard/'
