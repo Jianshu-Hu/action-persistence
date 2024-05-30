@@ -1,12 +1,12 @@
 
 
-# Learn from Slo-Mo: State-Novelty Guided Adaptive Action Persistence in Deep Reinforcement Learning
+# State-Novelty Guided Action Persistence in Deep Reinforcement Learning
 
 This is an original PyTorch implementation of incorporating temporally persistent exploration in DrQ-v2 from
 
-[//]: # ([[Learn from Slo-Mo: State-Novelty Guided Adaptive Action Persistence in Deep Reinforcement Learning]]&#40;https://openreview.net/forum?id=EGQBpkIEuu&#41; by)
+[//]: # ([[State-Novelty Guided Action Persistence in Deep Reinforcement Learning]]&#40;https://openreview.net/forum?id=EGQBpkIEuu&#41; by)
 
-Learn from Slo-Mo: State-Novelty Guided Adaptive Action Persistence in Deep Reinforcement Learning by
+State-Novelty Guided Action Persistence in Deep Reinforcement Learning by
 [Jianshu Hu](https://jianshu-hu.github.io/), [Paul Weng](https://weng.fr/) and [Yutong Ban](https://people.csail.mit.edu/yban/index.html).
 
 ## Method
